@@ -59,8 +59,9 @@ Nuxt 4 App
 ### Data to Extract (per departure)
 - Departure time
 - Arrival time
-- Duration
-- 3 price tiers (Economy, Standard, First Class)
+- Duration (total travel time)
+- Number of changes/transfers (0 = direct train)
+- 3 price tiers (2nd class, 2nd class calm, First class)
 - Availability for each tier
 - **Booking link/identifier** (to construct deep link back to SJ.se for booking)
 
@@ -75,10 +76,11 @@ Nuxt 4 App
       "departureTime": "06:00",
       "arrivalTime": "10:30",
       "duration": "4h 30m",
+      "changes": 0,
       "prices": {
-        "economy": { "price": 195, "available": true },
-        "standard": { "price": 395, "available": true },
-        "first": { "price": 595, "available": false }
+        "secondClass": { "price": 195, "available": true },
+        "secondClassCalm": { "price": 395, "available": true },
+        "firstClass": { "price": 595, "available": false }
       },
       "bookingUrl": "https://www.sj.se/...[deep link to this specific departure]"
     }
@@ -157,20 +159,151 @@ Example: `sj:stockholm-central:malmo-central:2025-12-21`
 - Protect `/api/update-cache` with secret token in Authorization header
 - Token stored in environment variables
 
-## Next Implementation Steps
-1. Set up Nuxt 4 project, create simple ui
-2. Install Puppeteer
-3. **Inspect SJ.se for:**
-    - Scroll behavior (lazy load trigger)
-    - CSS selectors (departure list, price panels, availability)
-    - Booking URL structure/identifiers
-4. Implement scroll-to-bottom logic
-5. Build scraping logic in `/api/scrape`
-6. Extract/construct booking deep links
-7. Implement caching layer
-8. Create `/api/update-cache` endpoint
-9. Set up external cron trigger
-10. Build UI with loading states and "Book" buttons
+## Implementation Steps
+
+### 1. Set up Nuxt 4 project and create UI
+
+#### Install Nuxt UI
+- Add `@nuxt/ui` module to the project
+- Configure Nuxt UI in `nuxt.config.ts`
+
+#### Internationalization (i18n)
+- **Initial language:** Swedish only for UI text
+- **Architecture:** Prepare for multi-language support (use i18n structure from start)
+- **Code & Documentation:** All code, comments, and documentation in English
+- Consider using `@nuxtjs/i18n` module for future language expansion
+
+#### Create Start Page (Catch-all route)
+- Main page with simple search interface
+- Clean, minimal design using Nuxt UI components
+
+#### Design Philosophy
+- **Desktop-first approach:** SJ.se provides poor desktop experience (requires clicking back and forth)
+- **Our advantage:** Display all departure information in one comprehensive table
+- No need to click individual items to see prices and details
+- Optimize for wide screens and data density
+
+#### UI Components Needed:
+1. **Logo Placeholder**
+   - Very wide logo area (aspect ratio ~5:1)
+   - Positioned at top of page
+   - Placeholder for future branding
+
+2. **Light/Dark Mode Toggle**
+   - Button to switch between light and dark themes
+   - Persist user preference (localStorage)
+   - Use Nuxt UI's built-in theme system
+
+3. **City Selectors (2 instances)**
+   - Populate with 20 most populated Swedish cities/towns
+   - Sorted by population (largest to smallest)
+   - One selector for "From" location
+   - One selector for "To" location
+
+4. **Date Selector**
+   - Standard date picker component
+   - Default to today's date
+
+5. **Direct Trains Filter**
+   - Checkbox: "Only direct trains" (Endast direkta tåg)
+   - When checked, filters results to show only journeys without changes
+   - Applied after scraping (client-side filter)
+
+6. **Go Button**
+   - Submits the search form
+
+#### Cities List (20 most populated Swedish cities)
+```
+1. Stockholm
+2. Göteborg (Gothenburg)
+3. Malmö
+4. Uppsala
+5. Sollentuna
+6. Västerås
+7. Örebro
+8. Linköping
+9. Helsingborg
+10. Jönköping
+11. Norrköping
+12. Lund
+13. Umeå
+14. Gävle
+15. Borås
+16. Eskilstuna
+17. Södertälje
+18. Karlstad
+19. Täby
+20. Växjö
+```
+
+#### Validation Rules:
+- **Date validation:** Must be today or in the future (no past dates)
+- **City validation:** "From" and "To" cities must be different
+
+#### Navigation Pattern:
+- On "Go" button click: Navigate to `/{date}/{to}/{from}`
+- Example: `/2025-12-21/malmo/stockholm`
+- Use URL-friendly slugs (lowercase, hyphens for spaces)
+
+#### URL Slug Mapping:
+- Cities with spaces: Convert to lowercase with hyphens
+  - "Stockholm Central" → "stockholm-central"
+  - "Malmö Central" → "malmo-central"
+
+#### Results Display (after scraping)
+- **One comprehensive table** showing all departures with all details
+- **Table columns:**
+  - Departure time
+  - Arrival time
+  - Duration
+  - Number of changes/transfers
+  - 2nd class price
+  - 2nd class calm price
+  - First class price
+  - Booking link/button
+- **No clicking required** - all information visible at once
+- **Sortable columns** (time, price, duration)
+- **Filter controls** - apply "direct trains only" filter if checkbox is checked
+
+### 2. Install Puppeteer
+- Run `npm install puppeteer`
+- Configure for Cloudflare compatibility (if needed)
+
+### 3. Inspect SJ.se for:
+- Scroll behavior (lazy load trigger)
+- CSS selectors (departure list, price panels, availability)
+- Booking URL structure/identifiers
+
+### 4. Implement scroll-to-bottom logic
+- Create reusable scroll utility
+- Handle lazy loading of departure list
+
+### 5. Build scraping logic in `/api/scrape`
+- Implement main scraping flow
+- Extract departure data and prices
+
+### 6. Extract/construct booking deep links and journey details
+- **Extract journey information:**
+  - Total travel time (duration)
+  - Number of changes/transfers (0 for direct trains)
+- **Extract/construct booking links:**
+  - Investigate and implement best linking strategy
+  - Provide direct booking URLs per departure
+
+### 7. Implement caching layer
+- Use Nitro storage for cache
+- Implement cache key structure: `sj:{from}:{to}:{date}`
+- Set 1-hour TTL
+
+### 8. Create `/api/update-cache` endpoint
+- Protected with Authorization header
+- Pre-scrapes popular routes
+- Called hourly by external cron
+
+### 9. Set up external cron trigger
+- Configure external service (GitHub Actions, Cron-job.org, etc.)
+- Schedule hourly calls to `/api/update-cache`
+
 
 ## Deferred
 - OpenAI API summarization (may not be needed, scraping provides all data)

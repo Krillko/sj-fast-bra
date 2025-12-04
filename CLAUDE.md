@@ -155,3 +155,8 @@ Goal: Provide "Book this train" button that deep links with specific departure p
 - **Latest API versions**: When writing new code with external APIs, always use the latest version of the API. If existing code uses an older version, ask the user whether to update it or match the existing version
 - **ESLint**: After making code changes, run `npx eslint --fix [files]` to automatically fix formatting and linting issues
 - Use parentheses around comparison expressions in boolean assignments (e.g., `const isLocal = (environment === 'local');`)
+
+## Working Preferences
+- Full autonomy granted for all file operations in this directory
+- No need to ask permission before making changes, running commands, or refactoring
+- Proceed directly with implementation unless clarification is genuinely needed
