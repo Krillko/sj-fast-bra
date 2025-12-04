@@ -40,7 +40,9 @@ Nuxt 4 App
 ## Scraping Requirements
 
 ### Target Page Example
-`https://www.sj.se/sok-resa/valj-resa/Stockholm%20Central/Malmö%20Central/2025-12-21`
+`https://www.sj.se/en/buy-trip/journey/Stockholm%20Central/Malmö%20Central/2025-12-21`
+
+**Note:** Scraping English version of site (`/en/`) to keep all extracted data in English, matching our codebase language. Swedish is only used in our UI layer.
 
 ### Challenge
 - Each departure option must be clicked to reveal prices
@@ -269,10 +271,12 @@ Example: `sj:stockholm-central:malmo-central:2025-12-21`
 - Run `npm install puppeteer`
 - Configure for Cloudflare compatibility (if needed)
 
-### 3. Inspect SJ.se for:
+### 3. Inspect SJ.se English site for:
+- Target: `https://www.sj.se/en/buy-trip/journey/...`
 - Scroll behavior (lazy load trigger)
 - CSS selectors (departure list, price panels, availability)
 - Booking URL structure/identifiers
+- Verify English site has same functionality as Swedish version
 
 ### 4. Implement scroll-to-bottom logic
 - Create reusable scroll utility
