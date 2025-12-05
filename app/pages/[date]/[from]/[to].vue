@@ -106,6 +106,22 @@ alt="Sena Jämt">
               </div>
             </div>
 
+            <!-- Time range filters -->
+            <div class="mt-4 space-y-2">
+              <div class="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300">
+                <span>{{ t('results.earliestDeparture') }}: <strong>{{ earliestTime }}</strong></span>
+                <span>{{ t('results.latestDeparture') }}: <strong>{{ latestTime }}</strong></span>
+              </div>
+              <USlider
+                v-model="timeRange"
+                :min="0"
+                :max="1439"
+                :step="15"
+                color="primary"
+                size="md"
+              />
+            </div>
+
             <!-- No direct trains message -->
             <div v-if="!hasDirectTrains" class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <p class="text-sm text-yellow-800 dark:text-yellow-200">
@@ -264,6 +280,44 @@ const isToday = selectedDate.getTime() === today.getTime();
 // Direct trains filter toggle
 const showDirectOnly = ref(false);
 
+// Time range filters (in minutes from midnight: 0-1439)
+const timeRange = ref([0, 1439]); // Default: 00:00 to 23:59
+
+// Helper functions to convert between time strings and minutes
+const timeToMinutes = (timeStr: string): number => {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return (hours * 60) + minutes;
+};
+
+const minutesToTime = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
+// Computed properties for display
+const earliestTime = computed(() => minutesToTime(timeRange.value[0]));
+const latestTime = computed(() => minutesToTime(timeRange.value[1]));
+
+// Load time filters from localStorage on mount
+onMounted(() => {
+  const stored = localStorage.getItem('sj-time-filters');
+  if (stored) {
+    const filters = JSON.parse(stored);
+    const earliest = filters.earliest || '00:00';
+    const latest = filters.latest || '23:59';
+    timeRange.value = [timeToMinutes(earliest), timeToMinutes(latest)];
+  }
+});
+
+// Save time filters to localStorage when they change
+watch(timeRange, () => {
+  localStorage.setItem('sj-time-filters', JSON.stringify({
+    earliest: earliestTime.value,
+    latest: latestTime.value,
+  }));
+}, { deep: true });
+
 // Navigation loading states
 const isNavigatingPrevious = ref(false);
 const isNavigatingNext = ref(false);
@@ -281,15 +335,24 @@ const { data, status, error, refresh } = await useFetch('/api/scrape', {
   ...(isDateInPast ? { immediate: false } : {}),
 });
 
-// Filter departures based on toggle
+// Filter departures based on toggle and time range
 const filteredDepartures = computed(() => {
   if (!data.value?.departures) return [];
 
+  let filtered = data.value.departures;
+
+  // Filter by direct trains if enabled
   if (showDirectOnly.value) {
-    return data.value.departures.filter((d) => d.changes === 0);
+    filtered = filtered.filter((d) => d.changes === 0);
   }
 
-  return data.value.departures;
+  // Filter by time range
+  filtered = filtered.filter((d) => {
+    const departureTime = d.departureTime;
+    return departureTime >= earliestTime.value && departureTime <= latestTime.value;
+  });
+
+  return filtered;
 });
 
 // Check if there are any direct trains available
