@@ -323,16 +323,22 @@ const isNavigatingPrevious = ref(false);
 const isNavigatingNext = ref(false);
 
 // Fetch train data from API (no timeout - let it take as long as needed)
-// Only fetch if date is not in the past
-const { data, status, error, refresh } = await useFetch('/api/scrape', {
+// Fetch happens in onMounted to show loading state properly
+const { data, status, error, refresh, execute } = useFetch('/api/scrape', {
   query: {
     from: fromCity.stationName,
     to: toCity.stationName,
     date,
   },
   timeout: false, // No client-side timeout
-  // Skip the request if date is in the past
-  ...(isDateInPast ? { immediate: false } : {}),
+  immediate: false, // Don't fetch immediately, wait for onMounted
+});
+
+// Fetch data when component is mounted (only if date is not in the past)
+onMounted(async () => {
+  if (!isDateInPast) {
+    await execute();
+  }
 });
 
 // Filter departures based on toggle and time range

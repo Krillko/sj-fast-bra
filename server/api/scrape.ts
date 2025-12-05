@@ -320,7 +320,7 @@ export default defineEventHandler(async(event) => {
   }
 
   try {
-    // Use cache with 1 hour TTL
+    // Use cache with 24 hour TTL
     const cacheKey = `${query.from}:${query.to}:${query.date}`;
     const result = await useCache(
       cacheKey,
@@ -328,7 +328,7 @@ export default defineEventHandler(async(event) => {
         return await scrapeSJ(query.from, query.to, query.date);
       },
       {
-        ttl: 3600, // 1 hour in seconds
+        ttl: 86400, // 24 hours in seconds
         prefix: 'sj',
       },
     );
