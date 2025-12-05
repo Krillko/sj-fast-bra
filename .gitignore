@@ -18,6 +18,9 @@ logs
 .fleet
 .idea
 
+# Puppeteer exploration artifacts
+screenshots/
+
 # Local env files
 .env
 .env.*

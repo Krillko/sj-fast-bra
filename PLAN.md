@@ -45,18 +45,24 @@ Nuxt 4 App
 **Note:** Scraping English version of site (`/en/`) to keep all extracted data in English, matching our codebase language. Swedish is only used in our UI layer.
 
 ### Challenge
-- Each departure option must be clicked to reveal prices
-- URLs don't contain option identifiers
-- Site uses cookies/session state to track selections
-- **Page uses infinite scroll** - must scroll to bottom to load all departures before processing
-- Must iterate through each option, click, extract data, reset
+- **Two-page flow:** Clicking a departure navigates to a separate ticket selection page
+- Departure cards on results page do NOT show prices
+- **Page uses infinite scroll** - must scroll to bottom to load all departures before processing (confirmed: 7 cards initially, 14 after scroll)
+- Must navigate back and forth between results and ticket pages
+- Each departure requires separate page navigation (14 departures = 14 navigations)
 
 ### Scraping Flow
-1. Navigate to search results page
-2. **Scroll to bottom** to trigger loading of all departures (lazy loading)
+1. Navigate to search results page: `/search-journey/choose-journey/{from}/{to}/{date}`
+2. **Scroll to bottom** to trigger loading of all departures (lazy loading confirmed)
 3. Wait for all content to load
-4. Get list of all departure options
-5. For each option: click → extract prices → reset
+4. Get list of all departure cards (use UUID data-testid selector)
+5. For each departure card:
+   - Extract times, duration, changes from card HTML
+   - Click card to navigate to ticket selection page: `/choose-ticket-type/{from}/{to}/{date}/outward-journey`
+   - Extract prices for 3 classes using data-testid selectors (SECOND-price, SECOND_CALM-price, FIRST-price)
+   - Navigate back to results page
+   - Wait for page to stabilize
+6. Compile all data into JSON
 
 ### Data to Extract (per departure)
 - Departure time
@@ -92,18 +98,36 @@ Nuxt 4 App
 
 ## Booking Deep Links
 
-### Strategy
-During scraping, need to investigate how SJ.se handles booking:
-- **Option A:** Direct URL with departure identifier (ideal - if exists in DOM)
-- **Option B:** Reconstruct URL with query parameters
-- **Option C:** Generic search page URL (user must re-select)
+### Strategy (Updated based on findings)
 
-### Investigation Needed
-- Check if clicked departure reveals a unique booking URL/ID
-- Test if URL parameters can pre-select a specific departure
-- Fallback: Link to search results page (requires user to click again)
+**Discovered URL pattern:**
+```
+https://www.sj.se/en/search-journey/choose-ticket-type/{from}/{to}/{date}/outward-journey
+```
 
-**Goal:** Provide "Book this train" button that deep links to SJ.se with the specific departure pre-selected
+**Current Status:**
+- This URL leads to ticket selection page (choose between 2nd class, 2nd class calm, 1st class)
+- Does NOT pre-select a specific departure time
+- All departures for the same route/date share the same ticket selection URL
+
+**Options for implementation:**
+
+- **Option A (Current):** Link to ticket selection page
+  - URL: `/choose-ticket-type/{from}/{to}/{date}/outward-journey`
+  - User selects ticket class after clicking
+  - ⚠️ Does not pre-select the specific departure the user chose
+
+- **Option B (Investigate further):** Test URL parameters
+  - Check if URL can include departure time parameter to pre-select
+  - Example: `...?departureTime=12:00` or similar
+  - Requires additional testing
+
+- **Option C (Fallback):** Link to search results page
+  - URL: `/search-journey/choose-journey/{from}/{to}/{date}`
+  - User must find and click their train again
+  - Poor UX but functional
+
+**Goal:** Provide "Book this train" button. Currently using Option A (ticket selection page URL) until we can test if departure time can be pre-selected via URL parameters.
 
 ## Caching Strategy
 
