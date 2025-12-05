@@ -1,75 +1,34 @@
-# Nuxt Minimal Starter
+# Nuxt SJ Fast bra
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+## Installation
+We use NVM to make sure everyone uses the same node version  
+Make sure you have NVM and Homebrew installed on your computer
 
-## Setup
+#### Setup http
 
-Make sure to install dependencies:
-
-```bash
-# npm
-npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
+```sh
+// Install mkcert for creating a valid certificate (Mac OS):
+$ brew install mkcert
+$ mkcert -install
 ```
 
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
+#### First time staring the project
+Run in this directory:
+```sh
+$ mkcert localhost
 ```
+This will create two files, `localhost.pem` and `localhost-key.pem`
 
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
+```sh
+$ nvm install
+$ nvm use
+$ npm install
 ```
+(Make sure you always run `nvm use` before any npm install)
 
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
+### Each start
+Run in this directory:
+```sh
+$ nvm use
+$ npm run dev
 ```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.

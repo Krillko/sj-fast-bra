@@ -1,0 +1,51 @@
+{
+  "app": {
+    "title": "SJ Tågsök"
+  },
+  "search": {
+    "from": "Från",
+    "to": "Till",
+    "date": "Datum",
+    "directOnly": "Endast direkta tåg",
+    "go": "Sök",
+    "validation": {
+      "invalidDate": "Datum måste vara idag eller i framtiden",
+      "sameCity": "Från och Till måste vara olika städer"
+    }
+  },
+  "results": {
+    "departure": "Avgång",
+    "arrival": "Ankomst",
+    "duration": "Restid",
+    "changes": "Byten",
+    "secondClass": "2:a klass",
+    "secondClassCalm": "2:a klass lugn",
+    "firstClass": "1:a klass",
+    "book": "Boka",
+    "loading": "Söker tåg...",
+    "noResults": "Inga tåg hittades",
+    "directTrain": "Direkttåg"
+  },
+  "cities": {
+    "stockholm": "Stockholm",
+    "goteborg": "Göteborg",
+    "malmo": "Malmö",
+    "uppsala": "Uppsala",
+    "sollentuna": "Sollentuna",
+    "vasteras": "Västerås",
+    "orebro": "Örebro",
+    "linkoping": "Linköping",
+    "helsingborg": "Helsingborg",
+    "jonkoping": "Jönköping",
+    "norrkoping": "Norrköping",
+    "lund": "Lund",
+    "umea": "Umeå",
+    "gavle": "Gävle",
+    "boras": "Borås",
+    "eskilstuna": "Eskilstuna",
+    "sodertalje": "Södertälje",
+    "karlstad": "Karlstad",
+    "taby": "Täby",
+    "vaxjo": "Växjö"
+  }
+}
