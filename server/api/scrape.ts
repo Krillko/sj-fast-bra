@@ -263,7 +263,19 @@ export default defineEventHandler(async(event) => {
   }
 
   try {
-    const result = await scrapeSJ(query.from, query.to, query.date);
+    // Use cache with 1 hour TTL
+    const cacheKey = `${query.from}:${query.to}:${query.date}`;
+    const result = await useCache(
+      cacheKey,
+      async() => {
+        return await scrapeSJ(query.from, query.to, query.date);
+      },
+      {
+        ttl: 3600, // 1 hour in seconds
+        prefix: 'sj',
+      },
+    );
+
     return result;
   } catch (error) {
     console.error('Scraping error:', error);

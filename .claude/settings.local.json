@@ -19,7 +19,10 @@
       "Bash(node test-find-clickable.mjs:*)",
       "Bash(node test-button-click.mjs:*)",
       "Bash(node -e \"const script = require(''''fs'''').readFileSync(''''test-button-click.mjs'''', ''''utf8'''').replace(/2025-12-06/g, ''''2025-12-05''''); eval(script);\")",
-      "Bash(node test-improved-scroll.mjs)"
+      "Bash(node test-improved-scroll.mjs)",
+      "Bash(open \"https://localhost:3000/2025-12-17/stockholm/malmo\")",
+      "Bash(open \"https://localhost:3000/2025-12-17/uppsala/goteborg\")",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

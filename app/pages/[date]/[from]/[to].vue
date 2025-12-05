@@ -131,7 +131,7 @@ const toggleTheme = () => {
                 <span class="text-sm text-gray-700 dark:text-gray-300">
                   {{ t('results.allTrains') }}
                 </span>
-                <UToggle v-model="showDirectOnly" :disabled="!hasDirectTrains" />
+                <USwitch v-model="showDirectOnly" :disabled="!hasDirectTrains" />
                 <span class="text-sm text-gray-700 dark:text-gray-300">
                   {{ t('results.directOnly') }}
                 </span>

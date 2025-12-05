@@ -25,3 +25,6 @@ screenshots/
 .env
 .env.*
 !.env.example
+
+localhost.pem
+localhost-key.pem
