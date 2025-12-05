@@ -175,9 +175,14 @@ async function extractPrices(page: Page): Promise<{
 }
 
 /**
- * Main scraping function.
+ * Main scraping function with progress callback.
  */
-async function scrapeSJ(from: string, to: string, date: string): Promise<ScrapeResult> {
+export async function scrapeSJ(
+  from: string,
+  to: string,
+  date: string,
+  onProgress?: (current: number, total: number) => void,
+): Promise<ScrapeResult> {
   let browser: Browser | null = null;
 
   try {
@@ -214,12 +219,22 @@ async function scrapeSJ(from: string, to: string, date: string): Promise<ScrapeR
     const departureCards = await extractDepartureCards(page);
     console.log(`Found ${departureCards.length} departures`);
 
+    // Notify about total count
+    if (onProgress) {
+      onProgress(0, departureCards.length);
+    }
+
     // Scrape each departure
     const departures: Departure[] = [];
 
     for (let i = 0; i < departureCards.length; i++) {
       const card = departureCards[i];
       console.log(`Processing departure ${i + 1}/${departureCards.length}: ${card.departureTime} → ${card.arrivalTime}`);
+
+      // Report progress
+      if (onProgress) {
+        onProgress(i, departureCards.length);
+      }
 
       try {
         // Get the button inside the card and click it
@@ -263,6 +278,11 @@ async function scrapeSJ(from: string, to: string, date: string): Promise<ScrapeR
           prices,
           bookingUrl,
         });
+
+        // Report progress after processing
+        if (onProgress) {
+          onProgress(i + 1, departureCards.length);
+        }
 
         // Navigate back to results page
         await page.goBack();

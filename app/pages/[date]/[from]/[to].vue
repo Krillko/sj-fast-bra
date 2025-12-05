@@ -43,9 +43,31 @@ alt="Sena Jämt">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           {{ t('results.loading') }}
         </h2>
-        <p class="text-gray-600 dark:text-gray-400">
+
+        <!-- Status message -->
+        <p v-if="statusMessage" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+          {{ statusMessage }}
+        </p>
+
+        <p v-if="scrapeProgress.total === 0 && !statusMessage" class="text-gray-600 dark:text-gray-400">
           {{ t('results.loadingMessage') }}
         </p>
+        <div v-else-if="scrapeProgress.total > 0" class="text-center">
+          <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            {{ t('results.foundTrains', { total: scrapeProgress.total }) }}
+          </p>
+          <p class="text-gray-600 dark:text-gray-400">
+            {{ t('results.gettingInfo', { current: scrapeProgress.current, total: scrapeProgress.total }) }}
+          </p>
+          <div class="mt-4 w-64 mx-auto">
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                class="bg-primary h-2 rounded-full transition-all duration-300"
+                :style="{ width: `${(scrapeProgress.current / scrapeProgress.total) * 100}%` }"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Error State -->
@@ -311,17 +333,76 @@ watch(timeRange, () => {
 const isNavigatingPrevious = ref(false);
 const isNavigatingNext = ref(false);
 
-// Fetch train data from API (no timeout - let it take as long as needed)
-// Fetch happens in onMounted to show loading state properly
-const { data, status, error, refresh, execute } = useFetch('/api/scrape', {
-  query: {
+// Scraping state
+const data = ref<any>(null);
+const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle');
+const error = ref<Error | null>(null);
+const scrapeProgress = ref({ current: 0, total: 0 });
+const statusMessage = ref('');
+
+// Fetch data using EventSource for progress updates
+const fetchWithProgress = async () => {
+  status.value = 'pending';
+  error.value = null;
+  scrapeProgress.value = { current: 0, total: 0 };
+  statusMessage.value = '';
+
+  const params = new URLSearchParams({
     from: fromCity.stationName,
     to: toCity.stationName,
     date,
-  },
-  timeout: false, // No client-side timeout
-  immediate: false, // Don't fetch immediately, wait for onMounted
-});
+  });
+
+  console.log('Connecting to EventSource:', `/api/scrape-stream?${params}`);
+  const eventSource = new EventSource(`/api/scrape-stream?${params}`);
+
+  eventSource.onopen = () => {
+    console.log('EventSource connection opened');
+  };
+
+  eventSource.onmessage = (event) => {
+    console.log('Received SSE message:', event.data);
+    try {
+      const message = JSON.parse(event.data);
+      console.log('Parsed message:', message);
+
+      if (message.type === 'status') {
+        statusMessage.value = message.message;
+      }
+      else if (message.type === 'progress') {
+        scrapeProgress.value = {
+          current: message.current,
+          total: message.total,
+        };
+      }
+      else if (message.type === 'complete') {
+        console.log('Received complete data:', message.data);
+        data.value = message.data;
+        status.value = 'success';
+        eventSource.close();
+      }
+      else if (message.type === 'error') {
+        error.value = new Error(message.message);
+        status.value = 'error';
+        eventSource.close();
+      }
+    }
+    catch (err) {
+      console.error('Error parsing SSE message:', err, event.data);
+    }
+  };
+
+  eventSource.onerror = (err) => {
+    console.error('EventSource error:', err, 'ReadyState:', eventSource.readyState);
+    error.value = new Error('Connection error');
+    status.value = 'error';
+    eventSource.close();
+  };
+};
+
+const refresh = () => {
+  fetchWithProgress();
+};
 
 // Load settings and fetch data when component is mounted
 onMounted(async () => {
@@ -336,7 +417,7 @@ onMounted(async () => {
 
   // Fetch data (only if date is not in the past)
   if (!isDateInPast) {
-    await execute();
+    await fetchWithProgress();
   }
 });
 

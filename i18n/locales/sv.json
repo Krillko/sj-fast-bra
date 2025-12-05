@@ -27,6 +27,8 @@
     "book": "Boka",
     "loading": "Söker tåg...",
     "loadingMessage": "Detta kan ta upp till 30 sekunder",
+    "foundTrains": "Hittade {total} tåg",
+    "gettingInfo": "Hämtar information {current}/{total}",
     "noResults": "Inga tåg hittades",
     "directTrain": "Direkttåg",
     "unavailable": "Ej tillgänglig",
