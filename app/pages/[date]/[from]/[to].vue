@@ -44,8 +44,8 @@ alt="Sena Jämt">
           {{ t('results.loading') }}
         </h2>
 
-        <!-- Status message -->
-        <p v-if="statusMessage" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        <!-- Status message (only show when no total yet) -->
+        <p v-if="statusMessage && scrapeProgress.total === 0" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
           {{ statusMessage }}
         </p>
 
@@ -53,10 +53,10 @@ alt="Sena Jämt">
           {{ t('results.loadingMessage') }}
         </p>
         <div v-else-if="scrapeProgress.total > 0" class="text-center">
-          <p v-if="scrapeProgress.current === 0" class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             {{ t('results.foundTrains', { total: scrapeProgress.total }) }}
           </p>
-          <p v-else class="text-gray-600 dark:text-gray-400">
+          <p class="text-gray-600 dark:text-gray-400">
             {{ t('results.gettingInfo', { current: scrapeProgress.current, total: scrapeProgress.total }) }}
           </p>
           <div class="mt-4 w-64 mx-auto">
