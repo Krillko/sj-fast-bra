@@ -23,7 +23,8 @@
       "Bash(open \"https://localhost:3000/2025-12-17/stockholm/malmo\")",
       "Bash(open \"https://localhost:3000/2025-12-17/uppsala/goteborg\")",
       "WebSearch",
-      "Bash(open \"https://localhost:3000/\")"
+      "Bash(open \"https://localhost:3000/\")",
+      "Bash(jq:*)"
     ],
     "deny": [],
     "ask": []

@@ -58,9 +58,31 @@ async function extractDepartureCards(page: Page): Promise<Array<{
       const departureTime = timeMatches?.[0] || '';
       const arrivalTime = timeMatches?.[1] || '';
 
-      // Extract duration (look for patterns like "4 h 30 min")
-      const durationMatch = html.match(/(\d+\s*h(?:\s*\d+\s*min)?)/i);
-      const duration = durationMatch ? durationMatch[0] : '';
+      // Calculate precise duration from departure and arrival times
+      let duration = '';
+      if (departureTime && arrivalTime) {
+        const [depHours, depMinutes] = departureTime.split(':').map(Number);
+        const [arrHours, arrMinutes] = arrivalTime.split(':').map(Number);
+
+        let depTotalMinutes = (depHours * 60) + depMinutes;
+        let arrTotalMinutes = (arrHours * 60) + arrMinutes;
+
+        // Handle overnight trips (arrival time is next day)
+        if (arrTotalMinutes < depTotalMinutes) {
+          arrTotalMinutes += (24 * 60);
+        }
+
+        const durationMinutes = arrTotalMinutes - depTotalMinutes;
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+
+        if (minutes === 0) {
+          duration = `${hours} h`;
+        }
+        else {
+          duration = `${hours} h ${minutes} min`;
+        }
+      }
 
       // Extract changes (look for "0 change", "1 change", or "Direct")
       const changesMatch = html.match(/(\d+)\s*change/i);
