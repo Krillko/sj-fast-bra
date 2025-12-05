@@ -80,10 +80,10 @@ const toggleTheme = () => {
     <header class="bg-white dark:bg-gray-800 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="flex justify-between items-center">
-          <!-- Logo placeholder (5:1 aspect ratio) -->
+          <!-- Logo (5:1 aspect ratio) -->
           <div class="flex-1 max-w-3xl">
             <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
-              <span class="text-2xl font-bold text-gray-600 dark:text-gray-400">{{ t('app.title') }}</span>
+              <img src="/logo/Sena-Jamt.svg" class="w-full" alt="Sena Jämt">
             </div>
           </div>
 
