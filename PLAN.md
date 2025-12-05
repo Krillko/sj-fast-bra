@@ -318,6 +318,24 @@ Example: `sj:stockholm-central:malmo-central:2025-12-21`
   - Investigate and implement best linking strategy
   - Provide direct booking URLs per departure
 
+### 6.5. Create results page UI
+- **Dynamic route:** `app/pages/[date]/[from]/[to].vue`
+- **Loading state:**
+  - Show loading spinner/skeleton
+  - Display message: "This might take up to 30 seconds"
+  - Fetch data from `/api/scrape` with long timeout (no client-side timeout)
+- **Toggle switch:**
+  - "Direct connections only" vs "All trains"
+  - Client-side filtering of results
+- **Results table:**
+  - Display all departures in comprehensive table
+  - Columns: Departure, Arrival, Duration, Changes, 2nd class, 2nd class calm, 1st class, Book button
+  - Show price or "Unavailable" for each class
+- **No direct connections:**
+  - Detect if no departures have `changes: 0`
+  - Show message: "Inga direkta tåg finns. Visar alla resor." (No direct trains available. Showing all journeys.)
+- **Test case:** Uppsala Central → Göteborg Central (no direct connections)
+
 ### 7. Implement caching layer
 - Use Nitro storage for cache
 - Implement cache key structure: `sj:{from}:{to}:{date}`

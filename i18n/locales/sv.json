@@ -23,8 +23,18 @@
     "firstClass": "1:a klass",
     "book": "Boka",
     "loading": "Söker tåg...",
+    "loadingMessage": "Detta kan ta upp till 30 sekunder",
     "noResults": "Inga tåg hittades",
-    "directTrain": "Direkttåg"
+    "directTrain": "Direkttåg",
+    "unavailable": "Ej tillgänglig",
+    "allTrains": "Alla tåg",
+    "directOnly": "Endast direkta",
+    "noDirectTrains": "Inga direkta tåg finns. Visar alla resor.",
+    "change": "byte",
+    "changes": "byten",
+    "direct": "Direkt",
+    "error": "Ett fel uppstod vid hämtning av tågdata",
+    "retry": "Försök igen"
   },
   "cities": {
     "stockholm": "Stockholm",
