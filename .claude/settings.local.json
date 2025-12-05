@@ -27,7 +27,8 @@
       "Bash(jq:*)",
       "Bash(open \"https://localhost:3000/2025-12-20/stockholm/malmo\")",
       "Bash(open \"https://localhost:3000/2025-12-01/stockholm/malmo\")",
-      "Bash(open \"https://localhost:3000/2025-12-05/stockholm/malmo\")"
+      "Bash(open \"https://localhost:3000/2025-12-05/stockholm/malmo\")",
+      "Bash(open \"https://localhost:3000/2025-12-06/stockholm/malmo\")"
     ],
     "deny": [],
     "ask": []

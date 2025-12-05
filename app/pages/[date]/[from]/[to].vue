@@ -299,17 +299,6 @@ const minutesToTime = (minutes: number): string => {
 const earliestTime = computed(() => minutesToTime(timeRange.value[0]));
 const latestTime = computed(() => minutesToTime(timeRange.value[1]));
 
-// Load time filters from localStorage on mount
-onMounted(() => {
-  const stored = localStorage.getItem('sj-time-filters');
-  if (stored) {
-    const filters = JSON.parse(stored);
-    const earliest = filters.earliest || '00:00';
-    const latest = filters.latest || '23:59';
-    timeRange.value = [timeToMinutes(earliest), timeToMinutes(latest)];
-  }
-});
-
 // Save time filters to localStorage when they change
 watch(timeRange, () => {
   localStorage.setItem('sj-time-filters', JSON.stringify({
@@ -334,8 +323,18 @@ const { data, status, error, refresh, execute } = useFetch('/api/scrape', {
   immediate: false, // Don't fetch immediately, wait for onMounted
 });
 
-// Fetch data when component is mounted (only if date is not in the past)
+// Load settings and fetch data when component is mounted
 onMounted(async () => {
+  // Load time filters from localStorage
+  const stored = localStorage.getItem('sj-time-filters');
+  if (stored) {
+    const filters = JSON.parse(stored);
+    const earliest = filters.earliest || '00:00';
+    const latest = filters.latest || '23:59';
+    timeRange.value = [timeToMinutes(earliest), timeToMinutes(latest)];
+  }
+
+  // Fetch data (only if date is not in the past)
   if (!isDateInPast) {
     await execute();
   }
