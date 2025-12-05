@@ -19,11 +19,11 @@ const errors = ref({
   cities: '',
 });
 
-// City options for select dropdowns
-const cityOptions = SWEDISH_CITIES.map((city) => ({
+// City options for select dropdowns with search
+const cityOptions = computed(() => SWEDISH_CITIES.map((city) => ({
   value: city.id,
   label: t(city.translationKey),
-}));
+})));
 
 // Set default date to today
 const minDate = computed(() => {
@@ -116,22 +116,24 @@ const toggleTheme = () => {
         <div class="space-y-6">
           <!-- From City -->
           <UFormField :label="t('search.from')" :error="errors.cities">
-            <USelect
+            <USelectMenu
               v-model="fromCity"
               :items="cityOptions"
               :placeholder="t('search.from')"
               size="lg"
+              value-key="value"
               class="w-full"
             />
           </UFormField>
 
           <!-- To City -->
           <UFormField :label="t('search.to')">
-            <USelect
+            <USelectMenu
               v-model="toCity"
               :items="cityOptions"
               :placeholder="t('search.to')"
               size="lg"
+              value-key="value"
               class="w-full"
             />
           </UFormField>
