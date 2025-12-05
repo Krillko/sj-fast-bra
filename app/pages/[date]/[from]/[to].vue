@@ -5,7 +5,10 @@
         <div class="flex justify-between items-center">
           <NuxtLink to="/" class="flex-1 max-w-3xl">
             <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
-              <img src="/logo/Sena-Jamt.svg" class="w-full" alt="Sena Jämt">
+              <img
+src="/logo/Sena-Jamt.svg"
+class="w-full"
+alt="Sena Jämt">
             </div>
           </NuxtLink>
           <UButton
@@ -54,9 +57,27 @@
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
                   {{ t(fromCity.translationKey) }} → {{ t(toCity.translationKey) }}
                 </h2>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {{ date }}
-                </p>
+                <div class="flex items-center gap-2 mt-1">
+                  <UButton
+                    icon="i-heroicons-chevron-left"
+                    size="xs"
+                    variant="ghost"
+                    :loading="isNavigatingPrevious"
+                    :disabled="isNavigatingPrevious"
+                    @click="navigateToPreviousDay"
+                  />
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ date }}
+                  </p>
+                  <UButton
+                    icon="i-heroicons-chevron-right"
+                    size="xs"
+                    variant="ghost"
+                    :loading="isNavigatingNext"
+                    :disabled="isNavigatingNext"
+                    @click="navigateToNextDay"
+                  />
+                </div>
               </div>
 
               <!-- Direct trains toggle -->
@@ -130,7 +151,13 @@
                   {{ departure.arrivalTime }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                  {{ departure.duration }}
+                  {{ formatDuration(departure.duration) }}
+                  <UIcon
+                    v-if="isSignificantlyLonger(departure.duration)"
+                    name="i-heroicons-exclamation-triangle"
+                    class="inline-block ml-1 text-yellow-500"
+                    :title="`Significantly longer than average (${Math.round(averageDuration / 60)} h ${averageDuration % 60} min)`"
+                  />
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                   {{ formatChanges(departure.changes) }}
@@ -174,7 +201,6 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
 import { SWEDISH_CITIES } from '~/utils/cities';
 
@@ -197,6 +223,10 @@ if (!fromCity || !toCity) {
 
 // Direct trains filter toggle
 const showDirectOnly = ref(false);
+
+// Navigation loading states
+const isNavigatingPrevious = ref(false);
+const isNavigatingNext = ref(false);
 
 // Fetch train data from API (no timeout - let it take as long as needed)
 const { data, status, error, refresh } = await useFetch('/api/scrape', {
@@ -224,6 +254,47 @@ const hasDirectTrains = computed(() => {
   return data.value?.departures.some((d) => d.changes === 0) || false;
 });
 
+// Parse duration string to minutes
+const parseDurationToMinutes = (duration: string): number => {
+  const hourMatch = duration.match(/(\d+)\s*h/);
+  const minMatch = duration.match(/(\d+)\s*min/);
+
+  const hours = hourMatch && hourMatch[1] ? Number.parseInt(hourMatch[1], 10) : 0;
+  const minutes = minMatch && minMatch[1] ? Number.parseInt(minMatch[1], 10) : 0;
+
+  return (hours * 60) + minutes;
+};
+
+// Format duration to show hours and minutes properly
+const formatDuration = (duration: string): string => {
+  const totalMinutes = parseDurationToMinutes(duration);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (minutes === 0) {
+    return `${hours} h`;
+  }
+  return `${hours} h ${minutes} min`;
+};
+
+// Calculate average duration for all departures
+const averageDuration = computed(() => {
+  if (!data.value?.departures || data.value.departures.length === 0) return 0;
+
+  const totalMinutes = data.value.departures.reduce((sum, d) => {
+    return sum + parseDurationToMinutes(d.duration);
+  }, 0);
+
+  return totalMinutes / data.value.departures.length;
+});
+
+// Check if duration is significantly longer than average (>30% longer)
+const isSignificantlyLonger = (duration: string): boolean => {
+  const durationMinutes = parseDurationToMinutes(duration);
+  const avg = averageDuration.value;
+  return avg > 0 && durationMinutes > (avg * 1.3);
+};
+
 // Format changes text
 const formatChanges = (changes: number): string => {
   if (changes === 0) return t('results.direct');
@@ -235,6 +306,23 @@ const formatChanges = (changes: number): string => {
 const formatPrice = (price: number | null, available: boolean): string => {
   if (!available || price === null) return t('results.unavailable');
   return `${price} SEK`;
+};
+
+// Date navigation
+const navigateToPreviousDay = () => {
+  isNavigatingPrevious.value = true;
+  const currentDate = new Date(date);
+  currentDate.setDate(currentDate.getDate() - 1);
+  const previousDate = currentDate.toISOString().split('T')[0];
+  navigateTo(`/${previousDate}/${fromSlug}/${toSlug}`);
+};
+
+const navigateToNextDay = () => {
+  isNavigatingNext.value = true;
+  const currentDate = new Date(date);
+  currentDate.setDate(currentDate.getDate() + 1);
+  const nextDate = currentDate.toISOString().split('T')[0];
+  navigateTo(`/${nextDate}/${fromSlug}/${toSlug}`);
 };
 
 const toggleTheme = () => {
