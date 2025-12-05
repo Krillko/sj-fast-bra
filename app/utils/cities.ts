@@ -16,9 +16,8 @@ export const SWEDISH_CITIES: City[] = [
   { id: 'malmo', translationKey: 'cities.malmo', stationName: 'Malmö Central' },
   { id: 'uppsala', translationKey: 'cities.uppsala', stationName: 'Uppsala Central' },
 
-  // Rest sorted alphabetically
+  // Rest sorted alphabetically (Swedish order: å, ä, ö at the end)
   { id: 'alvesta', translationKey: 'cities.alvesta', stationName: 'Alvesta' },
-  { id: 'angelholm', translationKey: 'cities.angelholm', stationName: 'Ängelholm' },
   { id: 'avesta', translationKey: 'cities.avesta', stationName: 'Avesta Krylbo' },
   { id: 'boras', translationKey: 'cities.boras', stationName: 'Borås Central' },
   { id: 'borlange', translationKey: 'cities.borlange', stationName: 'Borlänge Central' },
@@ -51,8 +50,6 @@ export const SWEDISH_CITIES: City[] = [
   { id: 'nassjo', translationKey: 'cities.nassjo', stationName: 'Nässjö Central' },
   { id: 'norrkoping', translationKey: 'cities.norrkoping', stationName: 'Norrköping Central' },
   { id: 'nykoping', translationKey: 'cities.nykoping', stationName: 'Nyköping Central' },
-  { id: 'orebro', translationKey: 'cities.orebro', stationName: 'Örebro Central' },
-  { id: 'ostersund', translationKey: 'cities.ostersund', stationName: 'Östersund Central' },
   { id: 'sandviken', translationKey: 'cities.sandviken', stationName: 'Sandviken' },
   { id: 'skelleftea', translationKey: 'cities.skelleftea', stationName: 'Skellefteå' },
   { id: 'skovde', translationKey: 'cities.skovde', stationName: 'Skövde Central' },
@@ -65,4 +62,7 @@ export const SWEDISH_CITIES: City[] = [
   { id: 'varberg', translationKey: 'cities.varberg', stationName: 'Varberg' },
   { id: 'vasteras', translationKey: 'cities.vasteras', stationName: 'Västerås Central' },
   { id: 'vaxjo', translationKey: 'cities.vaxjo', stationName: 'Växjö Central' },
+  { id: 'angelholm', translationKey: 'cities.angelholm', stationName: 'Ängelholm' },
+  { id: 'orebro', translationKey: 'cities.orebro', stationName: 'Örebro Central' },
+  { id: 'ostersund', translationKey: 'cities.ostersund', stationName: 'Östersund Central' },
 ];
