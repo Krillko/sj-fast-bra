@@ -11,26 +11,26 @@ import type { Page } from 'puppeteer';
 export async function scrollToBottom(
   page: Page,
   options: {
-    /** Delay between scroll actions in milliseconds (default: 500) */
+    /** Delay between scroll actions in milliseconds (default: 1500) */
     scrollDelay?: number;
     /** Maximum time to spend scrolling in milliseconds (default: 30000) */
     maxScrollTime?: number;
-    /** Maximum number of scroll attempts (default: 50) */
+    /** Maximum number of scroll attempts (default: 20) */
     maxScrollAttempts?: number;
   } = {}
 ): Promise<void> {
   const {
-    scrollDelay = 500,
+    scrollDelay = 1500,
     maxScrollTime = 30000,
-    maxScrollAttempts = 50,
+    maxScrollAttempts = 20,
   } = options;
 
   const startTime = Date.now();
-  const attempts = 0;
 
   await page.evaluate(async(scrollDelayMs: number, maxTime: number, maxAttempts: number) => {
     await new Promise<void>((resolve) => {
       let lastHeight = document.body.scrollHeight;
+      let stableCount = 0; // Count how many times height stayed the same
       let attemptCount = 0;
       const startMs = Date.now();
 
@@ -46,21 +46,29 @@ export async function scrollToBottom(
         window.scrollTo(0, document.body.scrollHeight);
         attemptCount++;
 
-        // Check if new content loaded
-        const newHeight = document.body.scrollHeight;
-        if (newHeight === lastHeight) {
-          // No new content, we're done
-          clearInterval(scrollInterval);
-          resolve();
-        } else {
-          lastHeight = newHeight;
-        }
+        // Wait a moment for content to load, then check height
+        setTimeout(() => {
+          const newHeight = document.body.scrollHeight;
+
+          if (newHeight === lastHeight) {
+            stableCount++;
+            // Height stable for 3 checks in a row = we're done
+            if (stableCount >= 3) {
+              clearInterval(scrollInterval);
+              resolve();
+            }
+          } else {
+            // Height changed, reset stable count and update
+            stableCount = 0;
+            lastHeight = newHeight;
+          }
+        }, scrollDelayMs / 2); // Check halfway through the delay
       }, scrollDelayMs);
     });
   }, scrollDelay, maxScrollTime, maxScrollAttempts);
 
   const elapsedTime = Date.now() - startTime;
-  console.log(`✓ Scrolling complete. Took ${elapsedTime}ms, ${attempts} attempts.`);
+  console.log(`✓ Scrolling complete. Took ${elapsedTime}ms`);
 }
 
 /**

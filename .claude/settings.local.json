@@ -18,7 +18,8 @@
       "Bash(node test-click-debug.mjs:*)",
       "Bash(node test-find-clickable.mjs:*)",
       "Bash(node test-button-click.mjs:*)",
-      "Bash(node -e \"const script = require(''''fs'''').readFileSync(''''test-button-click.mjs'''', ''''utf8'''').replace(/2025-12-06/g, ''''2025-12-05''''); eval(script);\")"
+      "Bash(node -e \"const script = require(''''fs'''').readFileSync(''''test-button-click.mjs'''', ''''utf8'''').replace(/2025-12-06/g, ''''2025-12-05''''); eval(script);\")",
+      "Bash(node test-improved-scroll.mjs)"
     ],
     "deny": [],
     "ask": []
