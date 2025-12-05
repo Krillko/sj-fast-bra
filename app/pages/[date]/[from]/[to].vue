@@ -7,7 +7,7 @@
             <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
               <img
 src="/logo/Sena-Jamt.svg"
-class="w-full"
+class="w-full dark:invert"
 alt="Sena Jämt">
             </div>
           </NuxtLink>
@@ -191,7 +191,7 @@ alt="Sena Jämt">
                   {{ formatChanges(departure.changes) }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                  {{ departure.operator || '-' }}
+                  {{ translateOperator(departure.operator) || '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm" :class="departure.prices.secondClass.available ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'">
                   {{ formatPrice(departure.prices.secondClass.price, departure.prices.secondClass.available) }}
@@ -393,5 +393,15 @@ const formatTimestamp = (timestamp: string): string => {
     hour: '2-digit',
     minute: '2-digit',
   });
+};
+
+// Translate operator names to Swedish
+const translateOperator = (operator: string): string => {
+  const translations: Record<string, string> = {
+    'SJ High': 'SJ Snabbtåg',
+    'SJ Night': 'SJ Natttåg',
+  };
+
+  return translations[operator] || operator;
 };
 </script>

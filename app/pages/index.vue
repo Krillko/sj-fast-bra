@@ -88,7 +88,7 @@ const toggleTheme = () => {
           <!-- Logo (5:1 aspect ratio) -->
           <div class="flex-1 max-w-3xl">
             <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
-              <img src="/logo/Sena-Jamt.svg" class="w-full" alt="Sena Jämt">
+              <img src="/logo/Sena-Jamt.svg" class="w-full dark:invert" alt="Sena Jämt">
             </div>
           </div>
 
