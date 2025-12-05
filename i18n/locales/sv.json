@@ -20,6 +20,7 @@
     "arrival": "Ankomst",
     "duration": "Restid",
     "changes": "Byten",
+    "operator": "Operatör",
     "secondClass": "2:a klass",
     "secondClassCalm": "2:a klass lugn",
     "firstClass": "1:a klass",
@@ -36,7 +37,9 @@
     "changes": "byten",
     "direct": "Direkt",
     "error": "Ett fel uppstod vid hämtning av tågdata",
-    "retry": "Försök igen"
+    "retry": "Försök igen",
+    "scrapedAt": "Hämtad",
+    "statsSaved": "Vi sparade dig {clicks} klick och att besöka {pages} sidor"
   },
   "cities": {
     "stockholm": "Stockholm",

@@ -18,6 +18,7 @@ interface Departure {
   arrivalTime: string;
   duration: string;
   changes: number;
+  operator: string;
   prices: {
     secondClass: PriceInfo;
     secondClassCalm: PriceInfo;
@@ -31,6 +32,10 @@ interface ScrapeResult {
   date: string;
   scrapedAt: string;
   departures: Departure[];
+  stats: {
+    clicksSaved: number;
+    pagesVisited: number;
+  };
 }
 
 /**
@@ -41,6 +46,7 @@ async function extractDepartureCards(page: Page): Promise<Array<{
   arrivalTime: string;
   duration: string;
   changes: number;
+  operator: string;
   cardIndex: number;
 }>> {
   return page.evaluate(() => {
@@ -88,11 +94,31 @@ async function extractDepartureCards(page: Page): Promise<Array<{
       const changesMatch = html.match(/(\d+)\s*change/i);
       const changes = changesMatch ? Number.parseInt(changesMatch[1], 10) : 0;
 
+      // Extract operator (look for operator names like "SJ Intercity", "Mälartåg", etc.)
+      // The operator is usually displayed near the top of the card
+      let operator = '';
+      const operatorPatterns = [
+        /SJ\s+\w+/i,
+        /Mälartåg/i,
+        /Öresundståg/i,
+        /Snälltåget/i,
+        /Tågab/i,
+      ];
+
+      for (const pattern of operatorPatterns) {
+        const operatorMatch = html.match(pattern);
+        if (operatorMatch) {
+          operator = operatorMatch[0];
+          break;
+        }
+      }
+
       return {
         departureTime,
         arrivalTime,
         duration,
         changes,
+        operator,
         cardIndex: index,
       };
     });
@@ -233,6 +259,7 @@ async function scrapeSJ(from: string, to: string, date: string): Promise<ScrapeR
           arrivalTime: card.arrivalTime,
           duration: card.duration,
           changes: card.changes,
+          operator: card.operator,
           prices,
           bookingUrl,
         });
@@ -249,11 +276,19 @@ async function scrapeSJ(from: string, to: string, date: string): Promise<ScrapeR
 
     console.log(`✓ Scraping complete. Found ${departures.length} departures with prices`);
 
+    // Calculate stats
+    const clicksSaved = departures.length;
+    const pagesVisited = 1 + departures.length; // 1 results page + 1 page per departure
+
     return {
       route: `${from} → ${to}`,
       date,
       scrapedAt: new Date().toISOString(),
       departures,
+      stats: {
+        clicksSaved,
+        pagesVisited,
+      },
     };
   } finally {
     if (browser) {

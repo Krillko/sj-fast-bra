@@ -99,6 +99,17 @@ alt="Sena Jämt">
                 {{ t('results.noDirectTrains') }}
               </p>
             </div>
+
+            <!-- Stats and scraped timestamp -->
+            <div v-if="data.stats" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p class="text-sm text-blue-800 dark:text-blue-200">
+                <UIcon name="i-heroicons-sparkles" class="inline-block mr-1" />
+                {{ t('results.statsSaved', { clicks: data.stats.clicksSaved, pages: data.stats.pagesVisited }) }}
+              </p>
+              <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                {{ t('results.scrapedAt') }}: {{ formatTimestamp(data.scrapedAt) }}
+              </p>
+            </div>
           </template>
 
           <!-- No results -->
@@ -124,6 +135,9 @@ alt="Sena Jämt">
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.changes') }}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {{ t('results.operator') }}
                 </th>
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.secondClass') }}
@@ -161,6 +175,9 @@ alt="Sena Jämt">
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                   {{ formatChanges(departure.changes) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                  {{ departure.operator || '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm" :class="departure.prices.secondClass.available ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'">
                   {{ formatPrice(departure.prices.secondClass.price, departure.prices.secondClass.available) }}
@@ -327,5 +344,28 @@ const navigateToNextDay = () => {
 
 const toggleTheme = () => {
   colorMode.preference = (colorMode.value === 'dark' ? 'light' : 'dark');
+};
+
+// Format timestamp to readable format
+const formatTimestamp = (timestamp: string): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+
+  if (diffMins < 1) return 'Just nu';
+  if (diffMins < 60) return `${diffMins} min sedan`;
+
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours} h sedan`;
+
+  // Show full date/time if more than 24 hours
+  return date.toLocaleString('sv-SE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 </script>
