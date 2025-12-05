@@ -11,7 +11,14 @@
       "WebFetch(domain:ui.nuxt.com)",
       "Bash(ls:*)",
       "Bash(node test-puppeteer.mjs:*)",
-      "Bash(node explore-sj.mjs:*)"
+      "Bash(node explore-sj.mjs:*)",
+      "Bash(node test-scroll-utility.mjs:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(node test-click-debug.mjs:*)",
+      "Bash(node test-find-clickable.mjs:*)",
+      "Bash(node test-button-click.mjs:*)",
+      "Bash(node -e \"const script = require(''''fs'''').readFileSync(''''test-button-click.mjs'''', ''''utf8'''').replace(/2025-12-06/g, ''''2025-12-05''''); eval(script);\")"
     ],
     "deny": [],
     "ask": []
