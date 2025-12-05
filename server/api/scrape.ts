@@ -224,7 +224,7 @@ export async function scrapeSJ(
       onProgress(0, departureCards.length);
     }
 
-    // Scrape each departure
+    // Scrape each departure sequentially (optimized for speed)
     const departures: Departure[] = [];
 
     for (let i = 0; i < departureCards.length; i++) {
@@ -248,7 +248,6 @@ export async function scrapeSJ(
           const card = departureCards[index];
           if (!card) return null;
 
-          // Find the button inside the card
           const button = card.querySelector('button');
           return button;
         }, i);
@@ -258,15 +257,17 @@ export async function scrapeSJ(
           continue;
         }
 
-        // Click the button and wait for page to load
-        await buttonHandle.click();
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // Click and wait for navigation (faster with domcontentloaded)
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }),
+          buttonHandle.click(),
+        ]);
 
         // Extract prices
         const prices = await extractPrices(page);
 
         // Construct booking URL
-        const bookingUrl = `https://www.sj.se/en/search-journey/choose-ticket-type/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}/outward-journey`;
+        const bookingUrl = page.url();
 
         // Add to results
         departures.push({
@@ -284,11 +285,16 @@ export async function scrapeSJ(
           onProgress(i + 1, departureCards.length);
         }
 
-        // Navigate back to results page
-        await page.goBack();
-        await page.waitForSelector('[data-testid]', { timeout: 10000 });
-        await randomDelay(500, 1000);
-      } catch (error) {
+        // Navigate back faster
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }),
+          page.goBack(),
+        ]);
+
+        // Small delay to be respectful
+        await randomDelay(100, 200);
+      }
+      catch (error) {
         console.error(`Error processing departure ${i + 1}:`, error);
         // Continue with next departure
       }
