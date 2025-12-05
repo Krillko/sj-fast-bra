@@ -26,6 +26,11 @@ const cityOptions = SWEDISH_CITIES.map((city) => ({
 }));
 
 // Set default date to today
+const minDate = computed(() => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+});
+
 onMounted(() => {
   const today = new Date();
   travelDate.value = today.toISOString().split('T')[0];
@@ -137,6 +142,7 @@ const toggleTheme = () => {
               v-model="travelDate"
               type="date"
               size="lg"
+              :min="minDate"
             />
           </UFormField>
 

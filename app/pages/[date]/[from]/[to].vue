@@ -23,8 +23,22 @@ alt="Sena Jämt">
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <!-- Date in Past Error -->
+      <div v-if="isDateInPast" class="flex flex-col items-center justify-center py-20">
+        <UIcon name="i-heroicons-calendar-days" class="w-16 h-16 text-red-500 mb-4" />
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Datum i det förflutna
+        </h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">
+          Det går inte att söka efter tåg för datum som redan har passerat.
+        </p>
+        <UButton to="/">
+          Tillbaka till sökning
+        </UButton>
+      </div>
+
       <!-- Loading State -->
-      <div v-if="status === 'pending'" class="flex flex-col items-center justify-center py-20">
+      <div v-else-if="status === 'pending'" class="flex flex-col items-center justify-center py-20">
         <UIcon name="i-heroicons-arrow-path" class="w-16 h-16 animate-spin text-primary mb-4" />
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           {{ t('results.loading') }}
@@ -63,7 +77,7 @@ alt="Sena Jämt">
                     size="xs"
                     variant="ghost"
                     :loading="isNavigatingPrevious"
-                    :disabled="isNavigatingPrevious"
+                    :disabled="isNavigatingPrevious || isToday"
                     @click="navigateToPreviousDay"
                   />
                   <p class="text-sm text-gray-600 dark:text-gray-400">
@@ -238,6 +252,15 @@ if (!fromCity || !toCity) {
   throw createError({ statusCode: 404, message: 'City not found' });
 }
 
+// Validate that date is not in the past
+const selectedDate = new Date(date);
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+selectedDate.setHours(0, 0, 0, 0);
+
+const isDateInPast = selectedDate < today;
+const isToday = selectedDate.getTime() === today.getTime();
+
 // Direct trains filter toggle
 const showDirectOnly = ref(false);
 
@@ -246,6 +269,7 @@ const isNavigatingPrevious = ref(false);
 const isNavigatingNext = ref(false);
 
 // Fetch train data from API (no timeout - let it take as long as needed)
+// Only fetch if date is not in the past
 const { data, status, error, refresh } = await useFetch('/api/scrape', {
   query: {
     from: fromCity.stationName,
@@ -253,6 +277,8 @@ const { data, status, error, refresh } = await useFetch('/api/scrape', {
     date,
   },
   timeout: false, // No client-side timeout
+  // Skip the request if date is in the past
+  ...(isDateInPast ? { immediate: false } : {}),
 });
 
 // Filter departures based on toggle
