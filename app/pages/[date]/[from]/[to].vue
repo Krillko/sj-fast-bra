@@ -53,10 +53,10 @@ alt="Sena Jämt">
           {{ t('results.loadingMessage') }}
         </p>
         <div v-else-if="scrapeProgress.total > 0" class="text-center">
-          <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <p v-if="scrapeProgress.current === 0" class="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             {{ t('results.foundTrains', { total: scrapeProgress.total }) }}
           </p>
-          <p class="text-gray-600 dark:text-gray-400">
+          <p v-else class="text-gray-600 dark:text-gray-400">
             {{ t('results.gettingInfo', { current: scrapeProgress.current, total: scrapeProgress.total }) }}
           </p>
           <div class="mt-4 w-64 mx-auto">

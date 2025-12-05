@@ -52,9 +52,12 @@ export default defineEventHandler(async (event) => {
           message: 'Loading cached data...',
         }));
 
+        // Handle old cache format that wrapped data with extra layer
+        const actualData = cachedData.data ? cachedData.data : cachedData;
+
         await eventStream.push(JSON.stringify({
           type: 'complete',
-          data: cachedData,
+          data: actualData,
         }));
 
         await eventStream.close();
@@ -64,7 +67,7 @@ export default defineEventHandler(async (event) => {
       // Not cached, start scraping
       await eventStream.push(JSON.stringify({
         type: 'status',
-        message: 'Opening SJ website...',
+        message: 'Öppnar SJ:s hemsida...',
       }));
 
       // Start scraping with progress updates
