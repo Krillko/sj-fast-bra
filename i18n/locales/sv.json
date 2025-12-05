@@ -8,6 +8,8 @@
     "date": "Datum",
     "directOnly": "Endast direkta tåg",
     "go": "Sök",
+    "searching": "Söker...",
+    "timeWarning": "Observera: Sökningen kan ta upp till 30 sekunder",
     "validation": {
       "invalidDate": "Datum måste vara idag eller i framtiden",
       "sameCity": "Från och Till måste vara olika städer"

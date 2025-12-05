@@ -11,6 +11,7 @@ const fromCity = ref('');
 const toCity = ref('');
 const travelDate = ref('');
 const directOnly = ref(false);
+const isLoading = ref(false);
 
 // Validation errors
 const errors = ref({
@@ -59,6 +60,9 @@ const handleSearch = () => {
   if (!validateForm()) {
     return;
   }
+
+  // Set loading state
+  isLoading.value = true;
 
   // Navigate to results page
   router.push(`/${travelDate.value}/${fromCity.value}/${toCity.value}`);
@@ -144,13 +148,23 @@ const toggleTheme = () => {
             />
           </UFormField>
 
+          <!-- Time warning -->
+          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <p class="text-sm text-blue-800 dark:text-blue-200">
+              <UIcon name="i-heroicons-information-circle" class="inline-block mr-1" />
+              {{ t('search.timeWarning') }}
+            </p>
+          </div>
+
           <!-- Submit button -->
           <UButton
             block
             size="lg"
+            :loading="isLoading"
+            :disabled="isLoading"
             @click="handleSearch"
           >
-            {{ t('search.go') }}
+            {{ isLoading ? t('search.searching') : t('search.go') }}
           </UButton>
         </div>
       </UCard>
