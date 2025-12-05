@@ -8,8 +8,8 @@ Build a Nuxt 4 application that scrapes train schedules and prices from SJ.se (S
 ### Core Technologies
 - **Framework:** Nuxt 4
 - **Scraping Library:** Puppeteer (headless Chrome browser automation)
-- **Hosting:** Cloudflare (Pages/Workers)
 - **Caching:** Nitro built-in cache storage
+- **Note:** Hosting concerns deferred - focus on functionality first
 
 ### Why Puppeteer?
 - Target site (SJ.se) is client-side rendered only (requires JavaScript execution)
@@ -34,7 +34,7 @@ Nuxt 4 App
 
 ### Cron/Scheduling
 - Endpoint: `/api/update-cache`
-- External service calls it hourly (GitHub Actions, Cron-job.org, or Cloudflare Worker)
+- External service calls it hourly (GitHub Actions, Cron-job.org, or other)
 - Not real-time; users can wait 20-30 seconds for uncached routes
 
 ## Scraping Requirements
@@ -269,7 +269,7 @@ Example: `sj:stockholm-central:malmo-central:2025-12-21`
 
 ### 2. Install Puppeteer
 - Run `npm install puppeteer`
-- Configure for Cloudflare compatibility (if needed)
+- Test basic functionality
 
 ### 3. Inspect SJ.se English site for:
 - Target: `https://www.sj.se/en/buy-trip/journey/...`

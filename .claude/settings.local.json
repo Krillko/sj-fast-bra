@@ -9,7 +9,9 @@
       "Bash(curl:*)",
       "Bash(cat:*)",
       "WebFetch(domain:ui.nuxt.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(node test-puppeteer.mjs:*)",
+      "Bash(node explore-sj.mjs:*)"
     ],
     "deny": [],
     "ask": []
