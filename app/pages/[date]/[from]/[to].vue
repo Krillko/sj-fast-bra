@@ -347,11 +347,15 @@ const minutesToTime = (minutes: number): string => {
 const earliestTime = computed(() => minutesToTime(timeRange.value[0]));
 const latestTime = computed(() => minutesToTime(timeRange.value[1]));
 
-// Save time filters to localStorage when they change
+// Route-specific cache key for time filters
+const timeFiltersKey = computed(() => `sj-time-filters:${fromSlug}:${toSlug}`);
+
+// Save time filters to localStorage when they change (with TTL)
 watch(timeRange, () => {
-  localStorage.setItem('sj-time-filters', JSON.stringify({
+  localStorage.setItem(timeFiltersKey.value, JSON.stringify({
     earliest: earliestTime.value,
     latest: latestTime.value,
+    timestamp: Date.now(),
   }));
 }, { deep: true });
 
@@ -438,13 +442,30 @@ onMounted(async() => {
     showDirectOnly.value = JSON.parse(storedDirectFilter);
   }
 
-  // Load time filters from localStorage
-  const stored = localStorage.getItem('sj-time-filters');
+  // Load time filters from localStorage (route-specific with TTL check)
+  const stored = localStorage.getItem(timeFiltersKey.value);
   if (stored) {
-    const filters = JSON.parse(stored);
-    const earliest = filters.earliest || '00:00';
-    const latest = filters.latest || '23:59';
-    timeRange.value = [timeToMinutes(earliest), timeToMinutes(latest)];
+    try {
+      const filters = JSON.parse(stored);
+      const timestamp = filters.timestamp || 0;
+      const age = Date.now() - timestamp;
+      const maxAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+      // Check if data is still valid (within 24 hours)
+      if (age < maxAge) {
+        const earliest = filters.earliest || '00:00';
+        const latest = filters.latest || '23:59';
+        timeRange.value = [timeToMinutes(earliest), timeToMinutes(latest)];
+      }
+      else {
+        // Data expired, remove it
+        localStorage.removeItem(timeFiltersKey.value);
+      }
+    }
+    catch {
+      // Invalid data, remove it
+      localStorage.removeItem(timeFiltersKey.value);
+    }
   }
 
   // Fetch data (only if date is not in the past)
