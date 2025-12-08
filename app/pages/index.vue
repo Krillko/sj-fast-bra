@@ -96,7 +96,10 @@ const toggleTheme = () => {
           <!-- Logo (5:1 aspect ratio) -->
           <div class="flex-1 max-w-3xl">
             <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
-              <img src="/logo/Sena-Jamt.svg" class="w-full dark:invert" alt="Sena Jämt">
+              <img
+src="/logo/Sena-Jamt.svg"
+class="w-full dark:invert"
+alt="Sena Jämt">
             </div>
           </div>
 
@@ -113,77 +116,105 @@ const toggleTheme = () => {
     </header>
 
     <!-- Main content -->
-    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <UCard>
-        <template #header>
-          <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-            {{ t('search.from') }} → {{ t('search.to') }}
-          </h2>
-        </template>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left column - Search form (2/3 width) -->
+        <div class="lg:col-span-2">
+          <UCard>
+            <template #header>
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+                {{ t('search.from') }} → {{ t('search.to') }}
+              </h2>
+            </template>
 
-        <div class="space-y-6">
-          <!-- From City -->
-          <UFormField :label="t('search.from')" :error="errors.cities">
-            <USelectMenu
-              v-model="fromCity"
-              :items="cityOptions"
-              :placeholder="t('search.from')"
-              size="lg"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
+            <div class="space-y-6">
+              <!-- From City -->
+              <UFormField :label="t('search.from')" :error="errors.cities">
+                <USelectMenu
+                  v-model="fromCity"
+                  :items="cityOptions"
+                  :placeholder="t('search.from')"
+                  size="lg"
+                  value-key="value"
+                  class="w-full"
+                />
+              </UFormField>
 
-          <!-- To City -->
-          <UFormField :label="t('search.to')">
-            <USelectMenu
-              v-model="toCity"
-              :items="cityOptions"
-              :placeholder="t('search.to')"
-              size="lg"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
+              <!-- To City -->
+              <UFormField :label="t('search.to')">
+                <USelectMenu
+                  v-model="toCity"
+                  :items="cityOptions"
+                  :placeholder="t('search.to')"
+                  size="lg"
+                  value-key="value"
+                  class="w-full"
+                />
+              </UFormField>
 
-          <!-- Date -->
-          <UFormField :label="t('search.date')" :error="errors.date">
-            <UInput
-              v-model="travelDate"
-              type="date"
-              size="lg"
-              :min="minDate"
-            />
-          </UFormField>
+              <!-- Date -->
+              <UFormField :label="t('search.date')" :error="errors.date">
+                <UInput
+                  v-model="travelDate"
+                  type="date"
+                  size="lg"
+                  :min="minDate"
+                />
+              </UFormField>
 
-          <!-- Direct trains only checkbox -->
-          <UFormField>
-            <UCheckbox
-              v-model="directOnly"
-              :label="t('search.directOnly')"
-            />
-          </UFormField>
+              <!-- Direct trains only checkbox -->
+              <UFormField>
+                <UCheckbox
+                  v-model="directOnly"
+                  :label="t('search.directOnly')"
+                />
+              </UFormField>
 
-          <!-- Time warning -->
-          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p class="text-sm text-blue-800 dark:text-blue-200">
-              <UIcon name="i-heroicons-information-circle" class="inline-block mr-1" />
-              {{ t('search.timeWarning') }}
-            </p>
-          </div>
+              <!-- Time warning -->
+              <div class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p class="text-sm text-blue-800 dark:text-blue-200">
+                  <UIcon name="i-heroicons-information-circle" class="inline-block mr-1" />
+                  {{ t('search.timeWarning') }}
+                </p>
+              </div>
 
-          <!-- Submit button -->
-          <UButton
-            block
-            size="lg"
-            :loading="isLoading"
-            :disabled="isLoading"
-            @click="handleSearch"
-          >
-            {{ isLoading ? t('search.searching') : t('search.go') }}
-          </UButton>
+              <!-- Submit button -->
+              <UButton
+                block
+                size="lg"
+                :loading="isLoading"
+                :disabled="isLoading"
+                @click="handleSearch"
+              >
+                {{ isLoading ? t('search.searching') : t('search.go') }}
+              </UButton>
+            </div>
+          </UCard>
         </div>
-      </UCard>
+
+        <!-- Right column - Info/placeholder (1/3 width) -->
+        <div class="lg:col-span-1">
+          <UCard>
+            <template #header>
+              <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+                Lorem Ipsum
+              </h3>
+            </template>
+
+            <div class="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+              <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+              </p>
+              <p>
+                Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              </p>
+              <p>
+                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+              </p>
+            </div>
+          </UCard>
+        </div>
+      </div>
     </main>
   </div>
 </template>

@@ -144,8 +144,16 @@ alt="Sena Jämt">
               />
             </div>
 
-            <!-- No direct trains message -->
-            <div v-if="!hasDirectTrains" class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+            <!-- No trains at all message -->
+            <div v-if="!hasAnyTrains" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p class="text-sm text-red-800 dark:text-red-200">
+                <UIcon name="i-heroicons-exclamation-triangle" class="inline-block mr-1" />
+                {{ t('results.noTrainsAvailable') }}
+              </p>
+            </div>
+
+            <!-- No direct trains message (but other trains exist) -->
+            <div v-else-if="!hasDirectTrains" class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
               <p class="text-sm text-yellow-800 dark:text-yellow-200">
                 <UIcon name="i-heroicons-information-circle" class="inline-block mr-1" />
                 {{ t('results.noDirectTrains') }}
@@ -458,6 +466,11 @@ const filteredDepartures = computed(() => {
   });
 
   return filtered;
+});
+
+// Check if there are any trains at all
+const hasAnyTrains = computed(() => {
+  return (data.value?.departures?.length ?? 0) > 0;
 });
 
 // Check if there are any direct trains available

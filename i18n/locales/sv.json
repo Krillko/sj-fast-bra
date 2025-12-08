@@ -36,6 +36,7 @@
     "allTrains": "Alla tåg",
     "directOnly": "Endast direkta",
     "noDirectTrains": "Inga direkta tåg finns. Visar alla resor.",
+    "noTrainsAvailable": "Inga tåg tillgängliga för denna sträcka och datum.",
     "change": "byte",
     "changes": "byten",
     "direct": "Direkt",
