@@ -37,8 +37,8 @@ alt="Sena Jämt">
         </UButton>
       </div>
 
-      <!-- Loading State -->
-      <div v-else-if="status === 'pending'" class="flex flex-col items-center justify-center py-20">
+      <!-- Loading State (no data yet) -->
+      <div v-else-if="status === 'pending' && (!data || data.departures.length === 0)" class="flex flex-col items-center justify-center py-20">
         <UIcon name="i-heroicons-arrow-path" class="w-16 h-16 animate-spin text-primary mb-4" />
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           {{ t('results.loading') }}
@@ -84,8 +84,33 @@ alt="Sena Jämt">
         </UButton>
       </div>
 
-      <!-- Results -->
-      <div v-else-if="data">
+      <!-- Results (show even while loading if we have data) -->
+      <div v-else-if="data && data.departures.length > 0">
+        <!-- Loading banner (shown while scraping is in progress) -->
+        <div v-if="status === 'pending' && scrapeProgress.total > 0" class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <UIcon name="i-heroicons-arrow-path" class="w-5 h-5 animate-spin text-primary" />
+              <div>
+                <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                  {{ t('results.gettingInfo', { current: scrapeProgress.current, total: scrapeProgress.total }) }}
+                </p>
+                <p class="text-xs text-blue-600 dark:text-blue-300">
+                  {{ t('results.foundTrains', { total: scrapeProgress.total }) }}
+                </p>
+              </div>
+            </div>
+            <div class="w-32">
+              <div class="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                <div
+                  class="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                  :style="{ width: `${(scrapeProgress.current / scrapeProgress.total) * 100}%` }"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <UCard>
           <template #header>
             <div class="flex justify-between items-center">
@@ -121,7 +146,10 @@ alt="Sena Jämt">
                 <span class="text-sm text-gray-700 dark:text-gray-300">
                   {{ t('results.allTrains') }}
                 </span>
-                <USwitch v-model="showDirectOnly" :disabled="!hasDirectTrains" />
+                <USwitch
+                  v-model="showDirectOnly"
+                  :disabled="!hasDirectTrains || status === 'pending'"
+                />
                 <span class="text-sm text-gray-700 dark:text-gray-300">
                   {{ t('results.directOnly') }}
                 </span>
@@ -139,6 +167,7 @@ alt="Sena Jämt">
                 :min="0"
                 :max="1439"
                 :step="15"
+                :disabled="status === 'pending'"
                 color="primary"
                 size="md"
               />
@@ -377,6 +406,15 @@ const fetchWithProgress = async() => {
   scrapeProgress.value = { current: 0, total: 0 };
   statusMessage.value = '';
 
+  // Initialize data structure for progressive loading
+  data.value = {
+    route: `${fromCity.stationName} → ${toCity.stationName}`,
+    date,
+    scrapedAt: new Date().toISOString(),
+    departures: [],
+    stats: null,
+  };
+
   const params = new URLSearchParams({
     from: fromCity.stationName,
     to: toCity.stationName,
@@ -405,8 +443,15 @@ const fetchWithProgress = async() => {
           total: message.total,
         };
       }
+      else if (message.type === 'departure') {
+        // Add individual departure to the list
+        if (data.value && data.value.departures) {
+          data.value.departures.push(message.departure);
+        }
+      }
       else if (message.type === 'complete') {
         console.log('Received complete data:', message.data);
+        // Update with final data (includes stats and scrapedAt)
         data.value = message.data;
         status.value = 'success';
         eventSource.close();
@@ -475,8 +520,14 @@ onMounted(async() => {
 });
 
 // Filter departures based on toggle and time range
+// NOTE: Only apply filters when loading is complete to show all results progressively
 const filteredDepartures = computed(() => {
   if (!data.value?.departures) return [];
+
+  // While loading, show all departures without filtering
+  if (status.value === 'pending') {
+    return data.value.departures;
+  }
 
   let filtered = data.value.departures;
 

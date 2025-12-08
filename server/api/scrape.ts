@@ -216,15 +216,17 @@ async function extractPrices(page: Page): Promise<{
 }
 
 /**
- * Main scraping function with progress callback.
+ * Main scraping function with progress callback and granular caching.
  */
 export async function scrapeSJ(
   from: string,
   to: string,
   date: string,
-  onProgress?: (current: number, total: number) => void
+  onProgress?: (current: number, total: number) => void,
+  onDeparture?: (departure: Departure) => void
 ): Promise<ScrapeResult> {
   let browser: Browser | null = null;
+  const storage = useStorage('cache');
 
   try {
     console.log(`🚂 Starting scrape: ${from} → ${to} on ${date}`);
@@ -265,8 +267,10 @@ export async function scrapeSJ(
       onProgress(0, departureCards.length);
     }
 
-    // Scrape each departure sequentially (optimized for speed)
+    // Scrape each departure sequentially with granular caching
     const departures: Departure[] = [];
+    let skippedCount = 0;
+    let cacheHits = 0;
 
     for (let i = 0; i < departureCards.length; i++) {
       const card = departureCards[i];
@@ -277,9 +281,37 @@ export async function scrapeSJ(
         onProgress(i, departureCards.length);
       }
 
+      // Check cache for this specific departure
+      const depCacheKey = `sj:dep:${from}:${to}:${date}:${card.departureTime}`;
+      const cachedDeparture = await storage.getItem<{ data: Departure; timestamp: number }>(depCacheKey);
+
+      // Check if cached and still valid (1 hour TTL)
+      if (cachedDeparture?.timestamp) {
+        const age = Date.now() - cachedDeparture.timestamp;
+        if (age < 3600000) { // 1 hour in milliseconds
+          console.log(`✓ Cache HIT for ${card.departureTime} (${Math.round(age / 60000)}min old)`);
+          departures.push(cachedDeparture.data);
+          cacheHits++;
+
+          // Send cached departure immediately
+          if (onDeparture) {
+            onDeparture(cachedDeparture.data);
+          }
+
+          // Report progress
+          if (onProgress) {
+            onProgress(i + 1, departureCards.length);
+          }
+
+          continue;
+        }
+      }
+
+      console.log(`⚙️  Cache MISS for ${card.departureTime}, scraping...`);
+
       try {
-        // Get the button inside the card and click it
-        const buttonHandle = await page.evaluateHandle((index: number) => {
+        // Click the card button using direct page evaluation (avoid detached frame issues)
+        const clickSuccess = await page.evaluate((index: number) => {
           const cards = document.querySelectorAll('[data-testid*="-"]');
           const departureCards = Array.from(cards).filter((card) => {
             const testId = card.getAttribute('data-testid');
@@ -287,22 +319,30 @@ export async function scrapeSJ(
           });
 
           const card = departureCards[index];
-          if (!card) return null;
+          if (!card) return false;
 
           const button = card.querySelector('button');
-          return button;
+          if (!button) return false;
+
+          (button as HTMLButtonElement).click();
+          return true;
         }, i);
 
-        if (!buttonHandle) {
-          console.error(`Button in card ${i} not found`);
+        if (!clickSuccess) {
+          console.error(`❌ Button in card ${i} not found or click failed, skipping`);
+          skippedCount++;
           continue;
         }
 
-        // Click and wait for navigation (faster with domcontentloaded)
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }),
-          buttonHandle.click(),
-        ]);
+        // Wait for navigation with increased timeout
+        try {
+          await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+        }
+        catch {
+          console.error(`❌ Navigation timeout for departure ${i + 1}, trying to continue...`);
+          // Page might have navigated anyway, try to continue
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
 
         // Extract prices
         const prices = await extractPrices(page);
@@ -311,7 +351,7 @@ export async function scrapeSJ(
         const bookingUrl = page.url();
 
         // Add to results
-        departures.push({
+        const departure: Departure = {
           departureTime: card.departureTime,
           arrivalTime: card.arrivalTime,
           duration: card.duration,
@@ -319,33 +359,70 @@ export async function scrapeSJ(
           operator: card.operator,
           prices,
           bookingUrl,
+        };
+
+        departures.push(departure);
+
+        // Cache this individual departure
+        const depCacheKey = `sj:dep:${from}:${to}:${date}:${card.departureTime}`;
+        await storage.setItem(depCacheKey, {
+          data: departure,
+          timestamp: Date.now(),
         });
+
+        // Send individual departure if callback provided
+        if (onDeparture) {
+          onDeparture(departure);
+        }
 
         // Report progress after processing
         if (onProgress) {
           onProgress(i + 1, departureCards.length);
         }
 
-        // Navigate back faster
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 8000 }),
-          page.goBack(),
-        ]);
+        // Navigate back with error handling
+        try {
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }),
+            page.goBack(),
+          ]);
+        }
+        catch {
+          console.error(`❌ Error navigating back for departure ${i + 1}, trying to reload...`);
+          // If going back fails, try reloading the original page
+          const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
 
         // Small delay to be respectful
         await randomDelay(100, 200);
       }
       catch (error) {
-        console.error(`Error processing departure ${i + 1}:`, error);
+        skippedCount++;
+        console.error(`❌ Error processing departure ${i + 1}/${departureCards.length} (${card.departureTime} → ${card.arrivalTime}):`, error);
         // Continue with next departure
       }
     }
 
-    console.log(`✓ Scraping complete. Found ${departures.length} departures with prices`);
+    if (skippedCount > 0) {
+      console.warn(`⚠️  Skipped ${skippedCount} departures due to errors`);
+    }
+
+    const scraped = departures.length - cacheHits;
+    console.log(`✓ Scraping complete. Total: ${departures.length} departures (${cacheHits} from cache, ${scraped} scraped, ${skippedCount} skipped)`);
+
+    // Store route metadata for future quick lookups
+    const metaCacheKey = `sj:meta:${from}:${to}:${date}`;
+    await storage.setItem(metaCacheKey, {
+      total: departures.length,
+      departureTimes: departures.map((d) => d.departureTime),
+      timestamp: Date.now(),
+    });
 
     // Calculate stats
     const clicksSaved = departures.length;
-    const pagesVisited = 1 + departures.length; // 1 results page + 1 page per departure
+    const pagesVisited = 1 + scraped; // 1 results page + 1 page per scraped departure
 
     return {
       route: `${from} → ${to}`,

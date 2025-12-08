@@ -10,7 +10,7 @@ interface ScrapeQuery {
  * Streaming scrape endpoint using Server-Sent Events.
  * Sends progress updates as scraping happens.
  */
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async(event) => {
   const query = getQuery(event) as ScrapeQuery;
 
   // Validate query parameters
@@ -33,38 +33,9 @@ export default defineEventHandler(async (event) => {
   const eventStream = createEventStream(event);
 
   // Start async scraping process (don't await - let it run in background)
-  (async () => {
+  (async() => {
     try {
       // Send initial status
-      await eventStream.push(JSON.stringify({
-        type: 'status',
-        message: 'Checking cache...',
-      }));
-
-      // Check cache first
-      const cacheKey = `${query.from}:${query.to}:${query.date}`;
-      const cachedData = await useStorage('cache').getItem(`sj:${cacheKey}`);
-
-      // If cached, send it immediately as an event and close
-      if (cachedData) {
-        await eventStream.push(JSON.stringify({
-          type: 'status',
-          message: 'Loading cached data...',
-        }));
-
-        // Handle old cache format that wrapped data with extra layer
-        const actualData = cachedData.data ? cachedData.data : cachedData;
-
-        await eventStream.push(JSON.stringify({
-          type: 'complete',
-          data: actualData,
-        }));
-
-        await eventStream.close();
-        return;
-      }
-
-      // Not cached, start scraping
       await eventStream.push(JSON.stringify({
         type: 'status',
         message: 'Öppnar SJ:s hemsida...',
@@ -75,7 +46,7 @@ export default defineEventHandler(async (event) => {
         query.from,
         query.to,
         query.date,
-        async (current, total) => {
+        async(current, total) => {
           // Send progress event
           await eventStream.push(JSON.stringify({
             type: 'progress',
@@ -83,12 +54,17 @@ export default defineEventHandler(async (event) => {
             total,
           }));
         },
+        async(departure) => {
+          // Send individual departure as it's scraped
+          await eventStream.push(JSON.stringify({
+            type: 'departure',
+            departure,
+          }));
+        }
       );
 
-      // Cache the result
-      await useStorage('cache').setItem(`sj:${cacheKey}`, result, {
-        ttl: 86400, // 24 hours
-      });
+      // Note: Individual departures are now cached in the scraper itself (granular caching)
+      // No need to cache the full result here
 
       // Send completion event with data
       await eventStream.push(JSON.stringify({
