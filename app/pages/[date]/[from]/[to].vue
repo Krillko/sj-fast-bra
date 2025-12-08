@@ -290,6 +290,14 @@ if (!fromCity || !toCity) {
   throw createError({ statusCode: 404, message: 'City not found' });
 }
 
+// Set dynamic page title
+useHead({
+  title: `${t(fromCity.translationKey)} → ${t(toCity.translationKey)} - ${date} | SJ Tågsök`,
+  meta: [
+    { name: 'description', content: `Tågförbindelser från ${t(fromCity.translationKey)} till ${t(toCity.translationKey)} den ${date}. Jämför priser och tider.` },
+  ],
+});
+
 // Validate that date is not in the past
 const selectedDate = new Date(date);
 const today = new Date();
@@ -301,6 +309,11 @@ const isToday = selectedDate.getTime() === today.getTime();
 
 // Direct trains filter toggle
 const showDirectOnly = ref(false);
+
+// Save direct filter preference to localStorage when it changes
+watch(showDirectOnly, () => {
+  localStorage.setItem('sj-direct-filter', JSON.stringify(showDirectOnly.value));
+});
 
 // Time range filters (in minutes from midnight: 0-1439)
 const timeRange = ref([0, 1439]); // Default: 00:00 to 23:59
@@ -341,7 +354,7 @@ const scrapeProgress = ref({ current: 0, total: 0 });
 const statusMessage = ref('');
 
 // Fetch data using EventSource for progress updates
-const fetchWithProgress = async () => {
+const fetchWithProgress = async() => {
   status.value = 'pending';
   error.value = null;
   scrapeProgress.value = { current: 0, total: 0 };
@@ -405,7 +418,13 @@ const refresh = () => {
 };
 
 // Load settings and fetch data when component is mounted
-onMounted(async () => {
+onMounted(async() => {
+  // Load direct filter preference from localStorage
+  const storedDirectFilter = localStorage.getItem('sj-direct-filter');
+  if (storedDirectFilter !== null) {
+    showDirectOnly.value = JSON.parse(storedDirectFilter);
+  }
+
   // Load time filters from localStorage
   const stored = localStorage.getItem('sj-time-filters');
   if (stored) {

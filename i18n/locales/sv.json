@@ -42,7 +42,7 @@
     "error": "Ett fel uppstod vid hämtning av tågdata",
     "retry": "Försök igen",
     "scrapedAt": "Hämtad",
-    "statsSaved": "Vi sparade att besöka {pages} sidor",
+    "statsSaved": "Vi sparade dig att besöka {pages} sidor",
     "earliestDeparture": "Tidigast avgång",
     "latestDeparture": "Senast avgång"
   },

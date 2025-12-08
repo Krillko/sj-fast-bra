@@ -6,6 +6,14 @@ const { t } = useI18n();
 const router = useRouter();
 const colorMode = useColorMode();
 
+// Set page title
+useHead({
+  title: 'SJ Tågsök - Hitta snabba tågförbindelser i Sverige',
+  meta: [
+    { name: 'description', content: 'Sök och jämför tågpriser från SJ. Hitta snabba direkttåg mellan svenska städer.' },
+  ],
+});
+
 // Form state
 const fromCity = ref('');
 const toCity = ref('');
