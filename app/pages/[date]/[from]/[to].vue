@@ -217,11 +217,15 @@ alt="Sena Jämt">
               <tr
                 v-for="(departure, index) in filteredDepartures"
                 :key="index"
-                class="hover:bg-gray-50 dark:hover:bg-gray-800">
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                :class="[
+                  hasNoAvailableTickets(departure)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                ]">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" :class="hasNoAvailableTickets(departure) ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-white'">
                   {{ departure.departureTime }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                <td class="px-6 py-4 whitespace-nowrap text-sm" :class="hasNoAvailableTickets(departure) ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-white'">
                   {{ departure.arrivalTime }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
@@ -254,6 +258,7 @@ alt="Sena Jämt">
                     target="_blank"
                     external
                     size="sm"
+                    :disabled="hasNoAvailableTickets(departure)"
                   >
                     {{ t('results.book') }}
                   </UButton>
@@ -584,5 +589,12 @@ const translateOperator = (operator: string): string => {
   };
 
   return translations[operator] || operator;
+};
+
+// Check if departure has no available tickets in any class
+const hasNoAvailableTickets = (departure: any): boolean => {
+  return !departure.prices.secondClass.available
+    && !departure.prices.secondClassCalm.available
+    && !departure.prices.firstClass.available;
 };
 </script>
