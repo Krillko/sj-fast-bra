@@ -70,7 +70,7 @@ async function extractDepartureCards(page: Page): Promise<Array<{
         const [depHours, depMinutes] = departureTime.split(':').map(Number);
         const [arrHours, arrMinutes] = arrivalTime.split(':').map(Number);
 
-        let depTotalMinutes = (depHours * 60) + depMinutes;
+        const depTotalMinutes = (depHours * 60) + depMinutes;
         let arrTotalMinutes = (arrHours * 60) + arrMinutes;
 
         // Handle overnight trips (arrival time is next day)
@@ -94,23 +94,64 @@ async function extractDepartureCards(page: Page): Promise<Array<{
       const changesMatch = html.match(/(\d+)\s*change/i);
       const changes = changesMatch ? Number.parseInt(changesMatch[1], 10) : 0;
 
-      // Extract operator (look for operator names like "SJ Intercity", "Mälartåg", etc.)
+      // Extract operator (look for operator names)
       // The operator is usually displayed near the top of the card
       let operator = '';
-      const operatorPatterns = [
-        /SJ\s+\w+/i,
-        /Mälartåg/i,
-        /Öresundståg/i,
-        /Snälltåget/i,
-        /Tågab/i,
-      ];
 
-      for (const pattern of operatorPatterns) {
-        const operatorMatch = html.match(pattern);
-        if (operatorMatch) {
-          operator = operatorMatch[0];
-          break;
+      // Try to find operator in data attributes first
+      const operatorDataAttr = card.querySelector('[data-operator]');
+      if (operatorDataAttr) {
+        operator = operatorDataAttr.getAttribute('data-operator') || '';
+      }
+
+      // If not found, try regex patterns
+      if (!operator) {
+        const operatorPatterns = [
+          /SJ\s+(High|Night|Regional|Intercity|Express)/i,
+          /SJ(?!\s)/i, // SJ alone
+          /Mälartåg/i,
+          /Öresundståg/i,
+          /Snälltåget/i,
+          /Tågab/i,
+          /Arriva/i,
+          /Vy\s+Tåg/i,
+          /MTR\s+Express/i,
+          /FlixTrain/i,
+        ];
+
+        for (const pattern of operatorPatterns) {
+          const operatorMatch = html.match(pattern);
+          if (operatorMatch) {
+            operator = operatorMatch[0].trim();
+            break;
+          }
         }
+      }
+
+      // If still not found, try to extract from card structure
+      if (!operator) {
+        // Look for text that might be an operator near the departure time
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+
+        // Look for spans or divs that might contain operator info
+        const possibleOperatorElements = tempDiv.querySelectorAll('span, div');
+        for (const el of Array.from(possibleOperatorElements)) {
+          const text = el.textContent?.trim() || '';
+          // Check if it looks like an operator (not a time, not a number, not too long)
+          if (text && text.length < 30 && !/\d{2}:\d{2}/.test(text) && !/^\d+$/.test(text)) {
+            // Check if it contains train-related keywords
+            if (/tåg|train|SJ|express|regional/i.test(text)) {
+              operator = text;
+              break;
+            }
+          }
+        }
+      }
+
+      // Log if operator is still empty for debugging
+      if (!operator && typeof console !== 'undefined') {
+        console.warn(`Could not extract operator for departure ${departureTime} → ${arrivalTime}. Card HTML sample:`, html.substring(0, 200));
       }
 
       return {
@@ -181,7 +222,7 @@ export async function scrapeSJ(
   from: string,
   to: string,
   date: string,
-  onProgress?: (current: number, total: number) => void,
+  onProgress?: (current: number, total: number) => void
 ): Promise<ScrapeResult> {
   let browser: Browser | null = null;
 
@@ -356,7 +397,7 @@ export default defineEventHandler(async(event) => {
       {
         ttl: 86400, // 24 hours in seconds
         prefix: 'sj',
-      },
+      }
     );
 
     return result;
