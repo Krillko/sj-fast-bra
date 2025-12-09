@@ -34,7 +34,10 @@
       "Bash(pkill:*)",
       "WebFetch(domain:gist.github.com)",
       "Bash(time curl:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(timeout 90 curl:*)",
+      "Bash(open \"https://localhost:3000/2025-12-09/umea/gavle\")",
+      "Bash(open \"https://localhost:3000/2025-12-09/stockholm/uppsala\")"
     ],
     "deny": [],
     "ask": []

@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 import type { Browser, Page } from 'puppeteer';
-import { acceptCookies, randomDelay, scrollToBottom } from '../utils/puppeteer';
+import { acceptCookies, scrollToBottom } from '../utils/puppeteer';
 
 interface ScrapeQuery {
   from: string;
@@ -240,6 +240,19 @@ export async function scrapeSJ(
     const page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
+    // Block unnecessary resources to speed up loading
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      // Block only images, fonts, and media (keep stylesheets for proper rendering)
+      if (['image', 'font', 'media'].includes(resourceType)) {
+        request.abort();
+      }
+      else {
+        request.continue();
+      }
+    });
+
     // Navigate to results page
     const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
     console.log(`Navigating to: ${url}`);
@@ -251,7 +264,6 @@ export async function scrapeSJ(
 
     // Wait for departure cards to load
     await page.waitForSelector('[data-testid]', { timeout: 10000 });
-    await randomDelay(1000, 2000);
 
     // Scroll to load all departures
     console.log('Scrolling to load all departures...');
@@ -259,8 +271,28 @@ export async function scrapeSJ(
 
     // Extract departure card data
     console.log('Extracting departure cards...');
-    const departureCards = await extractDepartureCards(page);
-    console.log(`Found ${departureCards.length} departures`);
+    const allDepartureCards = await extractDepartureCards(page);
+    console.log(`Found ${allDepartureCards.length} departures`);
+
+    // Filter out already departed trains
+    const now = new Date();
+    const [year, month, day] = date.split('-').map(Number);
+
+    const departureCards = allDepartureCards.filter((card) => {
+      const [hours, minutes] = card.departureTime.split(':').map(Number);
+      const departureDateTime = new Date(year, month - 1, day, hours, minutes);
+
+      // Add a small buffer (5 minutes) to avoid edge cases
+      const isUpcoming = departureDateTime.getTime() > (now.getTime() - 5 * 60 * 1000);
+
+      if (!isUpcoming) {
+        console.log(`⏭️  Skipping already departed train: ${card.departureTime}`);
+      }
+
+      return isUpcoming;
+    });
+
+    console.log(`${departureCards.length} upcoming departures (${allDepartureCards.length - departureCards.length} already departed)`);
 
     // Notify about total count
     if (onProgress) {
@@ -310,37 +342,36 @@ export async function scrapeSJ(
       console.log(`⚙️  Cache MISS for ${card.departureTime}, scraping...`);
 
       try {
-        // Click the card button using direct page evaluation (avoid detached frame issues)
-        const clickSuccess = await page.evaluate((index: number) => {
-          const cards = document.querySelectorAll('[data-testid*="-"]');
-          const departureCards = Array.from(cards).filter((card) => {
-            const testId = card.getAttribute('data-testid');
-            return testId && testId.match(/^[0-9a-f-]{36}$/);
-          });
-
-          const card = departureCards[index];
-          if (!card) return false;
-
-          const button = card.querySelector('button');
-          if (!button) return false;
-
-          (button as HTMLButtonElement).click();
-          return true;
-        }, i);
-
-        if (!clickSuccess) {
-          console.error(`❌ Button in card ${i} not found or click failed, skipping`);
-          skippedCount++;
-          continue;
-        }
-
-        // Wait for navigation with increased timeout
+        // Click and wait for navigation simultaneously (proper Puppeteer pattern)
         try {
-          await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 });
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }),
+            page.evaluate((index: number) => {
+              const cards = document.querySelectorAll('[data-testid*="-"]');
+              const departureCards = Array.from(cards).filter((card) => {
+                const testId = card.getAttribute('data-testid');
+                return testId && testId.match(/^[0-9a-f-]{36}$/);
+              });
+
+              const card = departureCards[index];
+              if (!card) throw new Error('Card not found');
+
+              const button = card.querySelector('button');
+              if (!button) throw new Error('Button not found');
+
+              (button as HTMLButtonElement).click();
+            }, i),
+          ]);
         }
-        catch {
-          console.error(`❌ Navigation timeout for departure ${i + 1}, trying to continue...`);
-          // Page might have navigated anyway, try to continue
+        catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          if (errorMsg.includes('not found')) {
+            console.error(`❌ Button in card ${i} not found, skipping`);
+            skippedCount++;
+            continue;
+          }
+          console.error(`❌ Navigation/click error for departure ${i + 1}, trying to continue...`);
+          // Page might have navigated anyway, wait a bit and continue
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
@@ -392,11 +423,10 @@ export async function scrapeSJ(
           // If going back fails, try reloading the original page
           const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          await new Promise((resolve) => setTimeout(resolve, 2000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
 
-        // Small delay to be respectful
-        await randomDelay(100, 200);
+        // No artificial delay needed - navigation waits ensure page is ready
       }
       catch (error) {
         skippedCount++;
