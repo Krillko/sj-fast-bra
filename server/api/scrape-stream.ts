@@ -42,6 +42,59 @@ export default defineEventHandler(async(event) => {
   // Start async scraping process (don't await - let it run in background)
   (async() => {
     try {
+      // Check route-level metadata cache first (unless noCache is enabled)
+      const storage = useStorage('cache');
+      const metaCacheKey = `sj:meta:${query.from}:${query.to}:${query.date}`;
+
+      if (!noCache) {
+        const metaCache = await storage.getItem<{
+          total: number;
+          departureTimes: string[];
+          timestamp: number;
+        }>(metaCacheKey);
+
+        // If metadata exists and is recent (within 1 hour), load from individual caches
+        if (metaCache?.timestamp && (Date.now() - metaCache.timestamp) < 3600000) {
+          console.log(`✓ Route metadata cache HIT - loading ${metaCache.total} departures from cache`);
+
+          // Load all departures from individual caches
+          const cachedDepartures = [];
+          for (const departureTime of metaCache.departureTimes) {
+            const depCacheKey = `sj:dep:${query.from}:${query.to}:${query.date}:${departureTime}`;
+            const cached = await storage.getItem<{ data: any; timestamp: number }>(depCacheKey);
+            if (cached?.data) {
+              cachedDepartures.push(cached.data);
+              // Send individual departure
+              await eventStream.push(JSON.stringify({
+                type: 'departure',
+                departure: cached.data,
+              }));
+            }
+          }
+
+          // Send complete event with cached data
+          await eventStream.push(JSON.stringify({
+            type: 'complete',
+            data: {
+              route: `${query.from} → ${query.to}`,
+              date: query.date,
+              scrapedAt: new Date(metaCache.timestamp).toISOString(),
+              departures: cachedDepartures,
+              stats: {
+                clicksSaved: cachedDepartures.length,
+                pagesVisited: 1,
+              },
+            },
+          }));
+
+          await eventStream.close();
+          return;
+        }
+      }
+
+      // No cached data available, start scraping
+      console.log(`⚙️  ${noCache ? 'Cache DISABLED' : 'Route metadata cache MISS'} - starting scrape`);
+
       // Send initial status
       await eventStream.push(JSON.stringify({
         type: 'status',
