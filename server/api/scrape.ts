@@ -169,12 +169,16 @@ async function extractDepartureCards(page: Page): Promise<Array<{
 /**
  * Extracts price information from the ticket selection page.
  */
-async function extractPrices(page: Page): Promise<{
+async function extractPrices(page: Page, debugMode = false): Promise<{
   secondClass: PriceInfo;
   secondClassCalm: PriceInfo;
   firstClass: PriceInfo;
+  debugInfo?: {
+    allPriceTestIds: string[];
+    allTestIds: string[];
+  };
 }> {
-  return page.evaluate(() => {
+  const result = await page.evaluate((debug: boolean) => {
     const extractPrice = (testId: string): PriceInfo => {
       const priceElement = document.querySelector(`[data-testid="${testId}"]`);
 
@@ -207,12 +211,48 @@ async function extractPrices(page: Page): Promise<{
       };
     };
 
-    return {
+    // Collect debug info if requested
+    let debugInfo;
+    if (debug) {
+      const allTestIds = Array.from(document.querySelectorAll('[data-testid]'))
+        .map((el) => el.getAttribute('data-testid'))
+        .filter((id) => id) as string[];
+      const allPriceTestIds = allTestIds.filter((id) => id.toLowerCase().includes('price'));
+
+      debugInfo = {
+        allPriceTestIds,
+        allTestIds: allTestIds.slice(0, 50), // Limit to first 50 to avoid huge output
+      };
+    }
+
+    const prices = {
       secondClass: extractPrice('SECOND-price'),
       secondClassCalm: extractPrice('SECOND_CALM-price'),
       firstClass: extractPrice('FIRST-price'),
     };
-  });
+
+    // Fallback for regional trains: check for 'totalPrice' testid
+    if (!prices.secondClass.available && !prices.secondClassCalm.available && !prices.firstClass.available) {
+      const totalPrice = extractPrice('totalPrice');
+      if (totalPrice.available) {
+        // Regional trains typically only have one price (second class)
+        prices.secondClass = totalPrice;
+      }
+    }
+
+    return {
+      ...prices,
+      debugInfo,
+    };
+  }, debugMode);
+
+  // Log debug info server-side
+  if (debugMode && result.debugInfo) {
+    console.log('🔍 Available price testids:', result.debugInfo.allPriceTestIds);
+    console.log('📋 All testids (first 50):', result.debugInfo.allTestIds);
+  }
+
+  return result;
 }
 
 /**
@@ -396,8 +436,13 @@ export async function scrapeSJ(
           await new Promise((resolve) => setTimeout(resolve, 2000));
         }
 
-        // Extract prices
-        const prices = await extractPrices(page);
+        // Extract prices (enable debug mode if single departure)
+        const prices = await extractPrices(page, !!options?.singleDeparture);
+
+        // Debug logging for single departure mode
+        if (options?.singleDeparture) {
+          console.log(`💰 Extracted prices for ${card.departureTime}:`, JSON.stringify(prices, null, 2));
+        }
 
         // Construct booking URL
         const bookingUrl = page.url();
