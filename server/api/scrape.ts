@@ -48,6 +48,7 @@ async function extractDepartureCards(page: Page): Promise<Array<{
   changes: number;
   operator: string;
   cardIndex: number;
+  detailUrl?: string;
 }>> {
   return page.evaluate(() => {
     const cards = document.querySelectorAll('[data-testid*="-"]');
@@ -154,6 +155,18 @@ async function extractDepartureCards(page: Page): Promise<Array<{
         console.warn(`Could not extract operator for departure ${departureTime} → ${arrivalTime}. Card HTML sample:`, html.substring(0, 200));
       }
 
+      // Try to extract the link/button href if available
+      let detailUrl: string | undefined;
+      const link = card.querySelector('a[href]');
+      const button = card.querySelector('button');
+
+      if (link) {
+        detailUrl = link.getAttribute('href') || undefined;
+      } else if (button) {
+        // Button doesn't have href, we'll need to click it
+        detailUrl = undefined;
+      }
+
       return {
         departureTime,
         arrivalTime,
@@ -161,6 +174,7 @@ async function extractDepartureCards(page: Page): Promise<Array<{
         changes,
         operator,
         cardIndex: index,
+        detailUrl,
       };
     });
   });
@@ -318,6 +332,11 @@ export async function scrapeSJ(
     const allDepartureCards = await extractDepartureCards(page);
     console.log(`Found ${allDepartureCards.length} departures`);
 
+    // Debug: Show all departure times found
+    if (options?.singleDeparture || allDepartureCards.length < 5) {
+      console.log('Departure times found:', allDepartureCards.map((c) => c.departureTime).join(', '));
+    }
+
     // Filter out already departed trains
     const now = new Date();
     const [year, month, day] = date.split('-').map(Number);
@@ -362,7 +381,8 @@ export async function scrapeSJ(
 
     for (let i = 0; i < cardsToProcess.length; i++) {
       const card = cardsToProcess[i];
-      console.log(`Processing departure ${i + 1}/${cardsToProcess.length}: ${card.departureTime} → ${card.arrivalTime}`);
+      const departureStartTime = Date.now();
+      console.log(`\n⏱️  Processing departure ${i + 1}/${cardsToProcess.length}: ${card.departureTime} → ${card.arrivalTime}`);
 
       // Report progress
       if (onProgress) {
@@ -370,18 +390,21 @@ export async function scrapeSJ(
       }
 
       // Check cache for this specific departure (skip if noCache is enabled)
+      const cacheCheckStart = Date.now();
       const depCacheKey = `sj:dep:${from}:${to}:${date}:${card.departureTime}`;
       let cachedDeparture: { data: Departure; timestamp: number } | null = null;
 
       if (!options?.noCache) {
         cachedDeparture = await storage.getItem<{ data: Departure; timestamp: number }>(depCacheKey);
       }
+      const cacheCheckTime = Date.now() - cacheCheckStart;
 
       // Check if cached and still valid (1 hour TTL)
       if (cachedDeparture?.timestamp && !options?.noCache) {
         const age = Date.now() - cachedDeparture.timestamp;
         if (age < 3600000) { // 1 hour in milliseconds
-          console.log(`✓ Cache HIT for ${card.departureTime} (${Math.round(age / 60000)}min old)`);
+          const totalTime = Date.now() - departureStartTime;
+          console.log(`✓ Cache HIT for ${card.departureTime} (${Math.round(age / 60000)}min old) - check: ${cacheCheckTime}ms, total: ${totalTime}ms`);
           departures.push(cachedDeparture.data);
           cacheHits++;
 
@@ -399,45 +422,46 @@ export async function scrapeSJ(
         }
       }
 
-      console.log(`⚙️  Cache ${options?.noCache ? 'DISABLED' : 'MISS'} for ${card.departureTime}, scraping...`);
+      console.log(`⚙️  Cache ${options?.noCache ? 'DISABLED' : 'MISS'} for ${card.departureTime} (${cacheCheckTime}ms), scraping...`);
 
       try {
-        // Click and wait for navigation simultaneously (proper Puppeteer pattern)
-        // Use the cardIndex from the original extraction to click the correct card
-        try {
-          await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }),
-            page.evaluate((index: number) => {
-              const cards = document.querySelectorAll('[data-testid*="-"]');
-              const departureCards = Array.from(cards).filter((card) => {
-                const testId = card.getAttribute('data-testid');
-                return testId && testId.match(/^[0-9a-f-]{36}$/);
-              });
+        // Click to navigate to departure details
+        // Find the card fresh each time by matching departure time (avoid stale DOM references)
+        const navStart = Date.now();
 
-              const card = departureCards[index];
-              if (!card) throw new Error('Card not found');
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }),
+          page.evaluate((departureTime: string) => {
+            // Find all departure cards
+            const cards = document.querySelectorAll('[data-testid*="-"]');
+            const departureCards = Array.from(cards).filter((card) => {
+              const testId = card.getAttribute('data-testid');
+              return testId && testId.match(/^[0-9a-f-]{36}$/);
+            });
 
-              const button = card.querySelector('button');
-              if (!button) throw new Error('Button not found');
+            // Find the card that matches this departure time
+            for (const card of departureCards) {
+              const html = card.innerHTML;
+              const timeMatches = html.match(/\d{2}:\d{2}/g);
+              if (timeMatches && timeMatches[0] === departureTime) {
+                const button = card.querySelector('button');
+                if (!button) throw new Error('Button not found');
+                (button as HTMLButtonElement).click();
+                return;
+              }
+            }
+            throw new Error(`Card for ${departureTime} not found`);
+          }, card.departureTime),
+        ]);
 
-              (button as HTMLButtonElement).click();
-            }, card.cardIndex),
-          ]);
-        }
-        catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          if (errorMsg.includes('not found')) {
-            console.error(`❌ Button in card ${card.cardIndex} not found, skipping`);
-            skippedCount++;
-            continue;
-          }
-          console.error(`❌ Navigation/click error for departure ${i + 1}, trying to continue...`);
-          // Page might have navigated anyway, wait a bit and continue
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        }
+        const navTime = Date.now() - navStart;
+        console.log(`  ├─ Navigate to details: ${navTime}ms`);
 
         // Extract prices (enable debug mode if single departure)
+        const extractStart = Date.now();
         const prices = await extractPrices(page, !!options?.singleDeparture);
+        const extractTime = Date.now() - extractStart;
+        console.log(`  ├─ Extract prices: ${extractTime}ms`);
 
         // Debug logging for single departure mode
         if (options?.singleDeparture) {
@@ -461,11 +485,14 @@ export async function scrapeSJ(
         departures.push(departure);
 
         // Cache this individual departure
+        const cacheWriteStart = Date.now();
         const depCacheKey = `sj:dep:${from}:${to}:${date}:${card.departureTime}`;
         await storage.setItem(depCacheKey, {
           data: departure,
           timestamp: Date.now(),
         });
+        const cacheWriteTime = Date.now() - cacheWriteStart;
+        console.log(`  ├─ Cache write: ${cacheWriteTime}ms`);
 
         // Send individual departure if callback provided
         if (onDeparture) {
@@ -474,29 +501,29 @@ export async function scrapeSJ(
 
         // Report progress after processing
         if (onProgress) {
-          onProgress(i + 1, departureCards.length);
+          onProgress(i + 1, cardsToProcess.length);
         }
 
-        // Navigate back with error handling
-        try {
-          await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }),
-            page.goBack(),
-          ]);
-        }
-        catch {
-          console.error(`❌ Error navigating back for departure ${i + 1}, trying to reload...`);
-          // If going back fails, try reloading the original page
-          const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
-          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
+        // Navigate back to results page (reload for fresh DOM instead of browser back)
+        const backStart = Date.now();
+        const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: 10000 });
+        // Wait for departure cards to be present and interactive
+        await page.waitForSelector('[data-testid]', { timeout: 5000 });
+        // Additional wait for React/Vue to hydrate the components
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const backTime = Date.now() - backStart;
+        console.log(`  ├─ Navigate back: ${backTime}ms`);
+
+        const totalDepartureTime = Date.now() - departureStartTime;
+        console.log(`  └─ Total for ${card.departureTime}: ${totalDepartureTime}ms (${(totalDepartureTime / 1000).toFixed(1)}s)`);
 
         // No artificial delay needed - navigation waits ensure page is ready
       }
       catch (error) {
         skippedCount++;
-        console.error(`❌ Error processing departure ${i + 1}/${departureCards.length} (${card.departureTime} → ${card.arrivalTime}):`, error);
+        const totalDepartureTime = Date.now() - departureStartTime;
+        console.error(`❌ Error processing departure ${i + 1}/${cardsToProcess.length} (${card.departureTime} → ${card.arrivalTime}) after ${totalDepartureTime}ms:`, error);
         // Continue with next departure
       }
     }
