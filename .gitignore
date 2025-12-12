@@ -26,5 +26,8 @@ screenshots/
 .env.*
 !.env.example
 
+# Claude Code local settings
+.claude/settings.local.json
+
 localhost.pem
 localhost-key.pem
