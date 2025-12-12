@@ -138,6 +138,54 @@ await storage.remove(key);
 
 See `server/utils/cache.ts` for implementation details.
 
+## Performance & Anti-Scraping
+
+### Current Performance
+
+- **Per departure:** ~3.5-4 seconds (with reliable DOM reloading)
+- **Individual caching:** Each departure cached for 1 hour
+- **Typical route:** 10-30 departures = 35-120 seconds total scrape time
+- **Cache hit:** < 10ms per departure
+
+### Anti-Scraping Considerations
+
+**Important Context:** SJ.se is operated by SJ AB, a Swedish state-owned company (Statens Järnvägar). As a public service funded by taxpayers, they should not actively prevent reasonable data access for public benefit applications like this one.
+
+#### Technical Observations
+
+During development, we encountered several challenges that may indicate anti-scraping measures or technical limitations of their React/Vue-based SPA:
+
+1. **DOM Instability**: After navigation, DOM elements become stale or re-render with different structure
+   - **Solution**: Always reload pages with fresh `page.goto()` instead of `page.goBack()`
+   - Find elements by content (departure time) rather than stored indices
+
+2. **Timing Requirements**: Pages need specific wait patterns for reliability
+   - Must wait for `networkidle0` (not just `domcontentloaded`)
+   - Additional 500ms delay for React/Vue component hydration
+   - Wait for `[data-testid]` selectors to appear before interaction
+
+3. **Element Matching**: Can't rely on element positions after page reloads
+   - Cards must be matched by departure time string, not index
+   - UUID-based testids don't provide stable references
+
+### Best Practices Implemented
+
+1. **Respectful scraping**: 500ms delays between operations
+2. **Aggressive caching**: 1-hour TTL on individual departures reduces load
+3. **Fail-fast timeouts**: 10-second max instead of long waits
+4. **Human-like patterns**: Smooth scrolling, cookie acceptance, random delays
+
+### If Blocking Occurs
+
+If SJ.se implements IP-based rate limiting or blocking:
+
+1. **First**: Contact SJ to request official API access (they should provide this as a public service)
+2. **Reduce frequency**: Implement longer delays or less frequent scraping
+3. **Increase caching**: Extend TTL to reduce total requests
+4. **Last resort**: Residential proxies (but first exhaust diplomatic options)
+
+Remember: As a state-owned public service, SJ should embrace tools that help citizens access their service more efficiently.
+
 ## Development Commands
 
 ```bash

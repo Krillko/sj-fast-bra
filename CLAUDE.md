@@ -114,10 +114,50 @@ TTL: 3600 seconds (1 hour)
 2. Scroll incrementally to bottom to trigger lazy loading of all departures
 3. Wait for all content to load
 4. Iterate through each departure option:
-   - Click to expand
+   - Navigate to departure details (using direct URL reload, not browser back)
    - Extract prices and availability for 3 tiers (Economy, Standard, First Class)
-   - Extract booking link/identifier
-   - Reset for next option
+   - Extract booking link
+   - Reload results page for next departure
+
+### Anti-Scraping Resilience (IMPORTANT)
+
+**Context**: SJ.se is a state-owned public service. If scraping issues arise, the approach should be diplomatic first (requesting API access) rather than aggressive workarounds.
+
+**Critical Implementation Rules**:
+
+1. **Never use browser back navigation** (`page.goBack()`)
+   - DOM becomes stale and unreliable after going back
+   - Always use `page.goto(url)` to reload the results page
+   - Ensures fresh DOM state for each departure click
+
+2. **Wait patterns are critical**:
+   ```typescript
+   // After navigating to results page
+   await page.goto(url, { waitUntil: 'networkidle0', timeout: 10000 });
+   await page.waitForSelector('[data-testid]', { timeout: 5000 });
+   await new Promise(resolve => setTimeout(resolve, 500)); // React/Vue hydration
+   ```
+
+3. **Find elements by content, not index**:
+   - Never store element indices and reuse them
+   - Always search for cards by matching departure time
+   - Example: Find card where first time match equals `card.departureTime`
+
+4. **Regional trains have different structure**:
+   - Long-distance: `SECOND-price`, `SECOND_CALM-price`, `FIRST-price` testids
+   - Regional trains: `totalPrice` testid only
+   - Always fallback to `totalPrice` if class-specific prices not found
+
+5. **Timeout strategy**:
+   - Use 10-second timeouts, not 15+ seconds
+   - Fail fast and log errors for debugging
+   - Don't let one stuck departure block the entire scrape
+
+6. **If encountering systematic failures**:
+   - Add debug logging to see what testids are available
+   - Take screenshots to inspect page state
+   - Check if DOM structure has changed
+   - Consider if SJ deployed anti-scraping updates
 
 ### Actual JSON Output Structure
 ```json
