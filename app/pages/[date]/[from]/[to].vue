@@ -648,7 +648,10 @@ const isFavorite = (departure: any): boolean => {
   );
 };
 
-const toggleFavorite = (departure: any) => {
+const toggleFavorite = async (departure: any) => {
+  // Save current scroll position
+  const scrollY = window.scrollY;
+
   const idx = favorites.value.findIndex(
     (fav) => fav.departure.departureTime === departure.departureTime
   );
@@ -668,6 +671,10 @@ const toggleFavorite = (departure: any) => {
 
   // Save to localStorage
   saveFavorites(favorites.value);
+
+  // Restore scroll position after DOM updates
+  await nextTick();
+  window.scrollTo(0, scrollY);
 };
 
 // Load settings and fetch data when component is mounted
