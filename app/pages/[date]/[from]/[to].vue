@@ -2,22 +2,67 @@
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <header class="bg-white dark:bg-gray-800 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div class="flex justify-between items-center">
-          <NuxtLink to="/" class="flex-1 max-w-3xl">
-            <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
-              <img
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <NuxtLink to="/" class="flex-1 max-w-3xl">
+              <div class="bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center" style="aspect-ratio: 5/1;">
+                <img
 src="/logo/Sena-Jamt.svg"
 class="w-full dark:invert"
 alt="Sena Jämt">
+              </div>
+            </NuxtLink>
+            <UButton
+              :icon="colorMode.value === 'dark' ? 'i-heroicons-sun' : 'i-heroicons-moon'"
+              color="gray"
+              variant="ghost"
+              aria-label="Toggle theme"
+              @click="toggleTheme"
+            />
+          </div>
+
+          <!-- Compact search form -->
+          <div class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-[150px]">
+              <label class="text-xs text-gray-600 dark:text-gray-400 mb-1 block">{{ t('search.from') }}</label>
+              <USelectMenu
+                v-model="searchForm.from"
+                :items="cityOptions"
+                :placeholder="t('search.from')"
+                size="sm"
+                value-key="value"
+                class="w-full"
+              />
             </div>
-          </NuxtLink>
-          <UButton
-            :icon="colorMode.value === 'dark' ? 'i-heroicons-sun' : 'i-heroicons-moon'"
-            color="gray"
-            variant="ghost"
-            aria-label="Toggle theme"
-            @click="toggleTheme"
-          />
+            <div class="flex-1 min-w-[150px]">
+              <label class="text-xs text-gray-600 dark:text-gray-400 mb-1 block">{{ t('search.to') }}</label>
+              <USelectMenu
+                v-model="searchForm.to"
+                :items="cityOptions"
+                :placeholder="t('search.to')"
+                size="sm"
+                value-key="value"
+                class="w-full"
+              />
+            </div>
+            <div class="flex-1 min-w-[150px]">
+              <label class="text-xs text-gray-600 dark:text-gray-400 mb-1 block">{{ t('search.date') }}</label>
+              <UInput
+                v-model="searchForm.date"
+                type="date"
+                size="sm"
+                :min="minDate"
+              />
+            </div>
+            <UButton
+              icon="i-heroicons-magnifying-glass"
+              size="sm"
+              :disabled="!canSearch"
+              @click="handleNewSearch"
+            >
+              Sök
+            </UButton>
+          </div>
         </div>
       </div>
     </header>
@@ -114,14 +159,25 @@ alt="Sena Jämt">
         <!-- Favorites Table -->
         <UCard v-if="favorites.length > 0" class="mb-4">
           <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-heroicons-star-solid" class="w-5 h-5 text-yellow-500" />
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                Favoriter
-              </h3>
-              <span class="text-sm text-gray-500 dark:text-gray-400">
-                ({{ favorites.length }})
-              </span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <UIcon name="i-heroicons-star-solid" class="w-5 h-5 text-yellow-500" />
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  Favoriter
+                </h3>
+                <span class="text-sm text-gray-500 dark:text-gray-400">
+                  ({{ favorites.length }})
+                </span>
+              </div>
+              <UButton
+                icon="i-heroicons-trash"
+                size="xs"
+                color="red"
+                variant="ghost"
+                @click="clearAllFavorites"
+              >
+                Rensa alla
+              </UButton>
             </div>
           </template>
 
@@ -144,7 +200,7 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
                 </th>
-                <th scope="col" class="w-12 py-3 px-2"></th>
+                <th scope="col" class="w-12 py-3 px-2"/>
               </tr>
               </thead>
               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -319,7 +375,7 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
                 </th>
-                <th scope="col" class="w-12 py-3 px-2"></th>
+                <th scope="col" class="w-12 py-3 px-2"/>
               </tr>
               </thead>
               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -407,6 +463,7 @@ import { SWEDISH_CITIES } from '~/utils/cities';
 import { SETTINGS } from '~/utils/settings';
 
 const route = useRoute();
+const router = useRouter();
 const { t } = useI18n();
 const colorMode = useColorMode();
 
@@ -419,6 +476,33 @@ interface FavoriteDeparture {
 }
 
 const favorites = ref<FavoriteDeparture[]>([]);
+
+// Search form state
+const searchForm = ref({
+  from: '',
+  to: '',
+  date: '',
+});
+
+// City options for dropdowns
+const cityOptions = computed(() => SWEDISH_CITIES.map((city) => ({
+  value: city.id,
+  label: t(city.translationKey),
+})));
+
+// Minimum date (today)
+const minDate = computed(() => {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+});
+
+// Check if search is valid
+const canSearch = computed(() => {
+  return searchForm.value.from
+    && searchForm.value.to
+    && searchForm.value.date
+    && searchForm.value.from !== searchForm.value.to;
+});
 
 // Get route params
 const date = route.params.date as string;
@@ -644,7 +728,7 @@ const isFavorite = (departure: any): boolean => {
   );
 };
 
-const toggleFavorite = async (departure: any) => {
+const toggleFavorite = async(departure: any) => {
   // Save current scroll position
   const scrollY = window.scrollY;
 
@@ -673,8 +757,36 @@ const toggleFavorite = async (departure: any) => {
   window.scrollTo(0, scrollY);
 };
 
+const clearAllFavorites = async() => {
+  // Save current scroll position
+  const scrollY = window.scrollY;
+
+  // Clear all favorites for this route
+  favorites.value = [];
+  saveFavorites(favorites.value);
+
+  // Restore scroll position after DOM updates
+  await nextTick();
+  window.scrollTo(0, scrollY);
+};
+
+// Handle new search
+const handleNewSearch = () => {
+  if (!canSearch.value) return;
+
+  // Navigate to new results page
+  router.push(`/${searchForm.value.date}/${searchForm.value.from}/${searchForm.value.to}`);
+};
+
 // Load settings and fetch data when component is mounted
 onMounted(async() => {
+  // Initialize search form with current route
+  searchForm.value = {
+    from: fromSlug,
+    to: toSlug,
+    date,
+  };
+
   // Load favorites
   favorites.value = loadFavorites();
 
