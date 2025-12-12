@@ -4,6 +4,8 @@ interface ScrapeQuery {
   from: string;
   to: string;
   date: string;
+  noCache?: string;
+  singleDeparture?: string;
 }
 
 /**
@@ -31,6 +33,11 @@ export default defineEventHandler(async(event) => {
 
   // Set up SSE
   const eventStream = createEventStream(event);
+
+  // Check if debug options are allowed (only in local environment)
+  const isLocal = (process.env.NUXT_PUBLIC_ENVIRONMENT === 'local');
+  const noCache = (isLocal && query.noCache === '1');
+  const singleDeparture = (isLocal && query.singleDeparture) ? query.singleDeparture : undefined;
 
   // Start async scraping process (don't await - let it run in background)
   (async() => {
@@ -60,6 +67,10 @@ export default defineEventHandler(async(event) => {
             type: 'departure',
             departure,
           }));
+        },
+        {
+          noCache,
+          singleDeparture,
         }
       );
 

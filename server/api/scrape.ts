@@ -223,7 +223,11 @@ export async function scrapeSJ(
   to: string,
   date: string,
   onProgress?: (current: number, total: number) => void,
-  onDeparture?: (departure: Departure) => void
+  onDeparture?: (departure: Departure) => void,
+  options?: {
+    noCache?: boolean;
+    singleDeparture?: string;
+  }
 ): Promise<ScrapeResult> {
   let browser: Browser | null = null;
   const storage = useStorage('cache');
@@ -294,9 +298,21 @@ export async function scrapeSJ(
 
     console.log(`${departureCards.length} upcoming departures (${allDepartureCards.length - departureCards.length} already departed)`);
 
+    // Filter to single departure if requested
+    let cardsToProcess = departureCards;
+    if (options?.singleDeparture) {
+      cardsToProcess = departureCards.filter((card) => card.departureTime === options.singleDeparture);
+      if (cardsToProcess.length === 0) {
+        console.warn(`⚠️  No departure found matching time: ${options.singleDeparture}`);
+      }
+      else {
+        console.log(`🎯 Single departure mode: processing only ${options.singleDeparture}`);
+      }
+    }
+
     // Notify about total count
     if (onProgress) {
-      onProgress(0, departureCards.length);
+      onProgress(0, cardsToProcess.length);
     }
 
     // Scrape each departure sequentially with granular caching
@@ -304,21 +320,25 @@ export async function scrapeSJ(
     let skippedCount = 0;
     let cacheHits = 0;
 
-    for (let i = 0; i < departureCards.length; i++) {
-      const card = departureCards[i];
-      console.log(`Processing departure ${i + 1}/${departureCards.length}: ${card.departureTime} → ${card.arrivalTime}`);
+    for (let i = 0; i < cardsToProcess.length; i++) {
+      const card = cardsToProcess[i];
+      console.log(`Processing departure ${i + 1}/${cardsToProcess.length}: ${card.departureTime} → ${card.arrivalTime}`);
 
       // Report progress
       if (onProgress) {
-        onProgress(i, departureCards.length);
+        onProgress(i, cardsToProcess.length);
       }
 
-      // Check cache for this specific departure
+      // Check cache for this specific departure (skip if noCache is enabled)
       const depCacheKey = `sj:dep:${from}:${to}:${date}:${card.departureTime}`;
-      const cachedDeparture = await storage.getItem<{ data: Departure; timestamp: number }>(depCacheKey);
+      let cachedDeparture: { data: Departure; timestamp: number } | null = null;
+
+      if (!options?.noCache) {
+        cachedDeparture = await storage.getItem<{ data: Departure; timestamp: number }>(depCacheKey);
+      }
 
       // Check if cached and still valid (1 hour TTL)
-      if (cachedDeparture?.timestamp) {
+      if (cachedDeparture?.timestamp && !options?.noCache) {
         const age = Date.now() - cachedDeparture.timestamp;
         if (age < 3600000) { // 1 hour in milliseconds
           console.log(`✓ Cache HIT for ${card.departureTime} (${Math.round(age / 60000)}min old)`);
@@ -332,17 +352,18 @@ export async function scrapeSJ(
 
           // Report progress
           if (onProgress) {
-            onProgress(i + 1, departureCards.length);
+            onProgress(i + 1, cardsToProcess.length);
           }
 
           continue;
         }
       }
 
-      console.log(`⚙️  Cache MISS for ${card.departureTime}, scraping...`);
+      console.log(`⚙️  Cache ${options?.noCache ? 'DISABLED' : 'MISS'} for ${card.departureTime}, scraping...`);
 
       try {
         // Click and wait for navigation simultaneously (proper Puppeteer pattern)
+        // Use the cardIndex from the original extraction to click the correct card
         try {
           await Promise.all([
             page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }),
@@ -360,13 +381,13 @@ export async function scrapeSJ(
               if (!button) throw new Error('Button not found');
 
               (button as HTMLButtonElement).click();
-            }, i),
+            }, card.cardIndex),
           ]);
         }
         catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
           if (errorMsg.includes('not found')) {
-            console.error(`❌ Button in card ${i} not found, skipping`);
+            console.error(`❌ Button in card ${card.cardIndex} not found, skipping`);
             skippedCount++;
             continue;
           }

@@ -421,6 +421,14 @@ const fetchWithProgress = async() => {
     date,
   });
 
+  // Add debug query parameters if present (only works in local environment)
+  if (route.query.noCache === '1') {
+    params.set('noCache', '1');
+  }
+  if (route.query.singleDeparture) {
+    params.set('singleDeparture', route.query.singleDeparture as string);
+  }
+
   console.log('Connecting to EventSource:', `/api/scrape-stream?${params}`);
   const eventSource = new EventSource(`/api/scrape-stream?${params}`);
 
@@ -615,7 +623,11 @@ const navigateToPreviousDay = () => {
   const currentDate = new Date(date);
   currentDate.setDate(currentDate.getDate() - 1);
   const previousDate = currentDate.toISOString().split('T')[0];
-  navigateTo(`/${previousDate}/${fromSlug}/${toSlug}`);
+  // Preserve debug query parameters
+  const query: Record<string, string> = {};
+  if (route.query.noCache === '1') query.noCache = '1';
+  if (route.query.singleDeparture) query.singleDeparture = route.query.singleDeparture as string;
+  navigateTo({ path: `/${previousDate}/${fromSlug}/${toSlug}`, query });
 };
 
 const navigateToNextDay = () => {
@@ -623,7 +635,11 @@ const navigateToNextDay = () => {
   const currentDate = new Date(date);
   currentDate.setDate(currentDate.getDate() + 1);
   const nextDate = currentDate.toISOString().split('T')[0];
-  navigateTo(`/${nextDate}/${fromSlug}/${toSlug}`);
+  // Preserve debug query parameters
+  const query: Record<string, string> = {};
+  if (route.query.noCache === '1') query.noCache = '1';
+  if (route.query.singleDeparture) query.singleDeparture = route.query.singleDeparture as string;
+  navigateTo({ path: `/${nextDate}/${fromSlug}/${toSlug}`, query });
 };
 
 const toggleTheme = () => {
