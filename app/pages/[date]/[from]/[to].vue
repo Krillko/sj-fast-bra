@@ -111,6 +111,87 @@ alt="Sena Jämt">
           </div>
         </div>
 
+        <!-- Favorites Table -->
+        <UCard v-if="favorites.length > 0" class="mb-4">
+          <template #header>
+            <div class="flex items-center gap-2">
+              <UIcon name="i-heroicons-star-solid" class="w-5 h-5 text-yellow-500" />
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                Favoriter
+              </h3>
+              <span class="text-sm text-gray-500 dark:text-gray-400">
+                ({{ favorites.length }})
+              </span>
+            </div>
+          </template>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead class="bg-yellow-50 dark:bg-yellow-900/10">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {{ t('results.departure') }}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {{ t('results.arrival') }}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {{ t('results.duration') }}
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {{ t('results.secondClass') }}
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {{ t('results.book') }}
+                </th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Favorit
+                </th>
+              </tr>
+              </thead>
+              <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+              <tr
+                v-for="(fav, index) in favorites"
+                :key="index"
+                class="bg-yellow-50 dark:bg-yellow-900/5 hover:bg-yellow-100 dark:hover:bg-yellow-900/10">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                  {{ fav.departure.departureTime }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                  {{ fav.departure.arrivalTime }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                  {{ formatDuration(fav.departure.duration) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm" :class="fav.departure.prices.secondClass.available ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'">
+                  {{ formatPrice(fav.departure.prices.secondClass.price, fav.departure.prices.secondClass.available) }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                  <UButton
+                    :to="fav.departure.bookingUrl"
+                    target="_blank"
+                    external
+                    size="sm"
+                    :disabled="hasNoAvailableTickets(fav.departure)"
+                  >
+                    {{ t('results.book') }}
+                  </UButton>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                  <UButton
+                    icon="i-heroicons-star-solid"
+                    size="sm"
+                    color="yellow"
+                    variant="ghost"
+                    @click="toggleFavorite(fav.departure)"
+                  />
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </UCard>
+
         <UCard>
           <template #header>
             <div class="flex justify-between items-center">
@@ -240,6 +321,9 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
                 </th>
+                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Favorit
+                </th>
               </tr>
               </thead>
               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -247,9 +331,10 @@ alt="Sena Jämt">
                 v-for="(departure, index) in filteredDepartures"
                 :key="index"
                 :class="[
+                  index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50',
                   hasNoAvailableTickets(departure)
                     ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                 ]">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" :class="hasNoAvailableTickets(departure) ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-white'">
                   {{ departure.departureTime }}
@@ -292,6 +377,15 @@ alt="Sena Jämt">
                     {{ t('results.book') }}
                   </UButton>
                 </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                  <UButton
+                    :icon="isFavorite(departure) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
+                    size="sm"
+                    :color="isFavorite(departure) ? 'yellow' : 'gray'"
+                    variant="ghost"
+                    @click="toggleFavorite(departure)"
+                  />
+                </td>
               </tr>
               </tbody>
             </table>
@@ -314,10 +408,21 @@ alt="Sena Jämt">
 
 <script setup lang="ts">
 import { SWEDISH_CITIES } from '~/utils/cities';
+import { SETTINGS } from '~/utils/settings';
 
 const route = useRoute();
 const { t } = useI18n();
 const colorMode = useColorMode();
+
+// Favorites management
+interface FavoriteDeparture {
+  from: string;
+  to: string;
+  departure: any;
+  addedAt: number;
+}
+
+const favorites = ref<FavoriteDeparture[]>([]);
 
 // Get route params
 const date = route.params.date as string;
@@ -487,8 +592,89 @@ const refresh = () => {
   fetchWithProgress();
 };
 
+// Favorite management functions
+const loadFavorites = () => {
+  try {
+    const stored = localStorage.getItem('sj-favorites');
+    if (!stored) return [];
+
+    const allFavorites: FavoriteDeparture[] = JSON.parse(stored);
+
+    // Filter expired favorites (older than TTL)
+    const now = Date.now();
+    const validFavorites = allFavorites.filter((fav) => {
+      return (now - fav.addedAt) < SETTINGS.FAVORITES_TTL_MS;
+    });
+
+    // Save back if any were removed
+    if (validFavorites.length !== allFavorites.length) {
+      localStorage.setItem('sj-favorites', JSON.stringify(validFavorites));
+    }
+
+    // Filter to current route only
+    return validFavorites.filter(
+      (fav) => fav.from === fromCity.stationName && fav.to === toCity.stationName
+    );
+  }
+  catch {
+    return [];
+  }
+};
+
+const saveFavorites = (favs: FavoriteDeparture[]) => {
+  try {
+    // Load all favorites
+    const stored = localStorage.getItem('sj-favorites');
+    const allFavorites: FavoriteDeparture[] = stored ? JSON.parse(stored) : [];
+
+    // Remove old favorites for this route
+    const otherFavorites = allFavorites.filter(
+      (fav) => !(fav.from === fromCity.stationName && fav.to === toCity.stationName)
+    );
+
+    // Add current route favorites
+    const updated = [...otherFavorites, ...favs];
+
+    localStorage.setItem('sj-favorites', JSON.stringify(updated));
+  }
+  catch (err) {
+    console.error('Failed to save favorites:', err);
+  }
+};
+
+const isFavorite = (departure: any): boolean => {
+  return favorites.value.some(
+    (fav) => fav.departure.departureTime === departure.departureTime
+  );
+};
+
+const toggleFavorite = (departure: any) => {
+  const idx = favorites.value.findIndex(
+    (fav) => fav.departure.departureTime === departure.departureTime
+  );
+
+  if (idx >= 0) {
+    // Remove from favorites
+    favorites.value.splice(idx, 1);
+  } else {
+    // Add to favorites
+    favorites.value.push({
+      from: fromCity.stationName,
+      to: toCity.stationName,
+      departure,
+      addedAt: Date.now(),
+    });
+  }
+
+  // Save to localStorage
+  saveFavorites(favorites.value);
+};
+
 // Load settings and fetch data when component is mounted
 onMounted(async() => {
+  // Load favorites
+  favorites.value = loadFavorites();
+
   // Load direct filter preference from localStorage
   const storedDirectFilter = localStorage.getItem('sj-direct-filter');
   if (storedDirectFilter !== null) {
