@@ -144,9 +144,7 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Favorit
-                </th>
+                <th scope="col" class="w-12 py-3 px-2"></th>
               </tr>
               </thead>
               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -177,7 +175,7 @@ alt="Sena Jämt">
                     {{ t('results.book') }}
                   </UButton>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                <td class="py-4 px-2 whitespace-nowrap text-center text-sm">
                   <UButton
                     icon="i-heroicons-star-solid"
                     size="sm"
@@ -321,9 +319,7 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Favorit
-                </th>
+                <th scope="col" class="w-12 py-3 px-2"></th>
               </tr>
               </thead>
               <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -377,7 +373,7 @@ alt="Sena Jämt">
                     {{ t('results.book') }}
                   </UButton>
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                <td class="py-4 px-2 whitespace-nowrap text-center text-sm">
                   <UButton
                     :icon="isFavorite(departure) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
                     size="sm"
