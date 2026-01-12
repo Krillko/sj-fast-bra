@@ -119,11 +119,11 @@ Each test should include:
 - Should fix "Card not found" errors AND be faster than browser back
 - DOM stability (no stale element issues)
 
-**Measurements**: [To be added after testing]
+**Measurements**: [Waiting for test results...]
 
 **Result**: [To be determined - TESTING IN PROGRESS]
 
-**Commit**: [To be added]
+**Commit**: `60b2057`
 
 ---
 
