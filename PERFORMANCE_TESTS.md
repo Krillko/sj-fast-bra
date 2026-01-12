@@ -46,14 +46,53 @@ Each test should include:
 
 ---
 
+## 2026-01-12: Browser Back vs Page Reload
+
+**Issue**: 27/27 departures failing on Malmö→Stockholm route with "Card not found" error. The SJ.se website works fine.
+
+**Hypothesis**:
+1. Using `page.goBack()` instead of `page.goto(url)` should be much faster due to browser caching
+2. The "Card not found" error is because we reload the page but don't scroll again to load lazy-loaded cards
+3. Browser back should preserve scroll position and loaded cards
+
+**Implementation**:
+- Changed from `page.goto(url)` to `page.goBack()` after extracting prices
+- Added `scrollToBottom()` after going back to ensure all cards are loaded
+- Increased timeouts from 5s to 20-30s to fix immediate failures
+- Added `stopOnFirstError` flag to catch issues faster during development
+
+**Files Modified**:
+- `nuxt.config.ts` - Increased timeouts, added stopOnFirstError flag
+- `server/api/scrape.ts` - Use browser back + scroll instead of page reload
+
+**Previous Behavior**:
+- Using `page.goto(url)` with `waitUntil: 'networkidle0'`
+- No scrolling after reload
+- Comment in code: "reload for fresh DOM instead of browser back"
+- CLAUDE.md says "Never use browser back navigation" due to stale DOM concerns
+
+**Expected Improvement**:
+- Browser back should be near-instant with caching (vs 5-30s for full page reload)
+- Scrolling after back ensures all cards are loaded
+- Should fix "Card not found" errors
+
+**Measurements**: [To be added after testing]
+
+**Result**: [To be determined - TESTING IN PROGRESS]
+
+**Commit**: [To be added]
+
+---
+
 ## Future Tests
 
 Document all future performance experiments below, even if they fail.
 
 ### Ideas to Test
-- Reduce timeout values (test if lower values still work reliably)
+- Reduce timeout values after fixing main issues
 - Parallel departure processing (risky - may trigger anti-scraping)
 - Different `waitUntil` strategies (`domcontentloaded` vs `networkidle0`)
-- Remove the 500ms hydration wait after navigate back
+- Remove the 500ms hydration wait (now removed, but test if still needed)
 - Optimize cache read/write operations
 - Resource blocking optimizations (block more types?)
+- Skip scrolling if we know card is near the top

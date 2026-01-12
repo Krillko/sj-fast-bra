@@ -571,16 +571,17 @@ export async function scrapeSJ(
           onProgress(i + 1, cardsToProcess.length);
         }
 
-        // Navigate back to results page (reload for fresh DOM instead of browser back)
+        // Navigate back to results page
+        // TESTING: Using browser back instead of page reload (should be faster with cache)
         const backStart = Date.now();
-        const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
+        await page.goBack({ waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
-        // Additional wait for React/Vue to hydrate the components
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Scroll to bottom again to ensure all lazy-loaded cards are available
+        console.log('  ├─ Scrolling to load all cards after back navigation...');
+        await scrollToBottom(page);
         timing.navigateBack = Date.now() - backStart;
-        console.log(`  ├─ Navigate back: ${timing.navigateBack}ms`);
+        console.log(`  ├─ Navigate back (with scroll): ${timing.navigateBack}ms`);
 
         timing.total = Date.now() - departureStartTime;
         timingData.push(timing);
@@ -595,6 +596,13 @@ export async function scrapeSJ(
         timing.failed = true;
         timingData.push(timing);
         console.error(`❌ Error processing departure ${i + 1}/${cardsToProcess.length} (${card.departureTime} → ${card.arrivalTime}) after ${timing.total}ms:`, error);
+
+        // Stop on first error if flag is set (local environment only)
+        const isLocal = (process.env.NUXT_PUBLIC_ENVIRONMENT === 'local');
+        if (isLocal && config.scraper.stopOnFirstError) {
+          console.log(`🛑 Stopping at first error (stopOnFirstError flag is enabled)`);
+          break;
+        }
         // Continue with next departure
       }
     }
