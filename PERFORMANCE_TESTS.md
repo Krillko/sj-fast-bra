@@ -76,11 +76,13 @@ Each test should include:
 - Scrolling after back ensures all cards are loaded
 - Should fix "Card not found" errors
 
-**Measurements**: [To be added after testing]
+**Measurements**:
+- Previous: Navigate back took ~3.3-3.5s per departure (page reload)
+- Testing: Browser back + scroll (waiting for test results...)
 
 **Result**: [To be determined - TESTING IN PROGRESS]
 
-**Commit**: [To be added]
+**Commit**: `8f60249`
 
 ---
 
