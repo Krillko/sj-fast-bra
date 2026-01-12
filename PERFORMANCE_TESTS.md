@@ -42,7 +42,7 @@ Each test should include:
 
 **Result**: ✅ **KEEP** - Essential infrastructure for all future performance work
 
-**Commit**: [To be added after commit]
+**Commit**: `561885e`
 
 ---
 
