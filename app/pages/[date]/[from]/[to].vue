@@ -145,13 +145,27 @@ alt="Sena Jämt">
                 </p>
               </div>
             </div>
-            <div class="w-32">
-              <div class="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
-                <div
-                  class="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
-                  :style="{ width: `${(scrapeProgress.current / scrapeProgress.total) * 100}%` }"
-                />
+            <div class="flex items-center gap-3">
+              <div class="w-32">
+                <div class="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2">
+                  <div
+                    class="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                    :style="{ width: `${(scrapeProgress.current / scrapeProgress.total) * 100}%` }"
+                  />
+                </div>
               </div>
+              <!-- Stop button (only in local environment) -->
+              <UButton
+                v-if="isLocalEnvironment"
+                icon="i-heroicons-stop"
+                size="sm"
+                color="red"
+                variant="soft"
+                :loading="isStoppingParse"
+                @click="stopParsing"
+              >
+                Stop
+              </UButton>
             </div>
           </div>
         </div>
@@ -591,6 +605,12 @@ const status = ref<'idle' | 'pending' | 'success' | 'error'>('idle');
 const error = ref<Error | null>(null);
 const scrapeProgress = ref({ current: 0, total: 0 });
 const statusMessage = ref('');
+const isStoppingParse = ref(false);
+
+// Check if we're in local environment
+const isLocalEnvironment = computed(() => {
+  return import.meta.env.NUXT_PUBLIC_ENVIRONMENT === 'local';
+});
 
 // Fetch data using EventSource for progress updates
 const fetchWithProgress = async() => {
@@ -657,11 +677,13 @@ const fetchWithProgress = async() => {
         // Update with final data (includes stats and scrapedAt)
         data.value = message.data;
         status.value = 'success';
+        isStoppingParse.value = false;
         eventSource.close();
       }
       else if (message.type === 'error') {
         error.value = new Error(message.message);
         status.value = 'error';
+        isStoppingParse.value = false;
         eventSource.close();
       }
     }
@@ -674,12 +696,41 @@ const fetchWithProgress = async() => {
     console.error('EventSource error:', err, 'ReadyState:', eventSource.readyState);
     error.value = new Error('Connection error');
     status.value = 'error';
+    isStoppingParse.value = false;
     eventSource.close();
   };
 };
 
 const refresh = () => {
   fetchWithProgress();
+};
+
+const stopParsing = async() => {
+  if (!isLocalEnvironment.value) return;
+
+  isStoppingParse.value = true;
+
+  try {
+    const params = new URLSearchParams({
+      from: fromCity.stationName,
+      to: toCity.stationName,
+      date,
+    });
+
+    const response = await fetch(`/api/abort-scrape?${params}`);
+
+    if (!response.ok) {
+      throw new Error('Failed to send stop signal');
+    }
+
+    console.log('Stop signal sent successfully');
+  } catch (err) {
+    console.error('Error stopping parse:', err);
+    error.value = new Error('Failed to stop parsing');
+  } finally {
+    // Keep the button loading until scraping actually stops
+    // The EventSource will handle updating the status
+  }
 };
 
 // Favorite management functions

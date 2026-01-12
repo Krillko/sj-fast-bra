@@ -12,10 +12,10 @@ export default defineNuxtConfig({
       // Timeouts in milliseconds
       timeouts: {
         initialPageLoad: 60000, // Initial navigation to search results
-        selectorWait: 20000, // Wait for departure cards to load
-        navigationClick: 30000, // Wait for navigation after clicking departure
-        navigateBack: 30000, // Wait for navigation back to results
-        selectorAfterBack: 10000, // Wait for departure cards after going back
+        selectorWait: 5000, // Wait for departure cards to load
+        navigationClick: 5000, // Wait for navigation after clicking departure
+        navigateBack: 5000, // Wait for navigation back to results
+        selectorAfterBack: 5000, // Wait for departure cards after going back
       },
     },
     public: {

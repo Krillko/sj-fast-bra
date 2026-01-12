@@ -27,6 +27,18 @@ interface Departure {
   bookingUrl: string;
 }
 
+interface DepartureTiming {
+  departureTime: string;
+  cacheCheck: number;
+  navigate: number;
+  extract: number;
+  cacheWrite: number;
+  navigateBack: number;
+  total: number;
+  fromCache: boolean;
+  failed: boolean;
+}
+
 interface ScrapeResult {
   route: string;
   date: string;
@@ -38,6 +50,13 @@ interface ScrapeResult {
   };
   incomplete?: boolean;
   failedCount?: number;
+  aborted?: boolean;
+  timings?: {
+    departures: DepartureTiming[];
+    totalTime: number;
+    scrollTime: number;
+    averagePerDeparture: number;
+  };
 }
 
 /**
@@ -290,6 +309,14 @@ export async function scrapeSJ(
   const config = useRuntimeConfig();
   const timeouts = config.scraper.timeouts;
 
+  // Track timing data
+  const timingData: DepartureTiming[] = [];
+  const scrapeStartTime = Date.now();
+  let scrollTime = 0;
+
+  // Abort signal key
+  const abortKey = `abort:${from}:${to}:${date}`;
+
   try {
     console.log(`🚂 Starting scrape: ${from} → ${to} on ${date}`);
 
@@ -329,7 +356,9 @@ export async function scrapeSJ(
 
     // Scroll to load all departures
     console.log('Scrolling to load all departures...');
+    const scrollStart = Date.now();
     await scrollToBottom(page);
+    scrollTime = Date.now() - scrollStart;
 
     // Extract departure card data
     console.log('Extracting departure cards...');
@@ -383,16 +412,44 @@ export async function scrapeSJ(
     let skippedCount = 0;
     let cacheHits = 0;
     const failedDepartures: string[] = []; // Track which departures failed
+    let aborted = false;
 
     for (let i = 0; i < cardsToProcess.length; i++) {
       const card = cardsToProcess[i];
       const departureStartTime = Date.now();
+
+      // Check for abort signal (only in local environment)
+      const isLocal = (process.env.NUXT_PUBLIC_ENVIRONMENT === 'local');
+      if (isLocal) {
+        const abortSignal = await storage.getItem<boolean>(abortKey);
+        if (abortSignal) {
+          console.log(`\n🛑 Abort signal received. Stopping after ${i} departures.`);
+          aborted = true;
+          // Clear abort signal
+          await storage.removeItem(abortKey);
+          break;
+        }
+      }
+
       console.log(`\n⏱️  Processing departure ${i + 1}/${cardsToProcess.length}: ${card.departureTime} → ${card.arrivalTime}`);
 
       // Report progress
       if (onProgress) {
         onProgress(i, cardsToProcess.length);
       }
+
+      // Initialize timing for this departure
+      const timing: DepartureTiming = {
+        departureTime: card.departureTime,
+        cacheCheck: 0,
+        navigate: 0,
+        extract: 0,
+        cacheWrite: 0,
+        navigateBack: 0,
+        total: 0,
+        fromCache: false,
+        failed: false,
+      };
 
       // Check cache for this specific departure (skip if noCache is enabled)
       const cacheCheckStart = Date.now();
@@ -408,8 +465,12 @@ export async function scrapeSJ(
       if (cachedDeparture?.timestamp && !options?.noCache) {
         const age = Date.now() - cachedDeparture.timestamp;
         if (age < 3600000) { // 1 hour in milliseconds
-          const totalTime = Date.now() - departureStartTime;
-          console.log(`✓ Cache HIT for ${card.departureTime} (${Math.round(age / 60000)}min old) - check: ${cacheCheckTime}ms, total: ${totalTime}ms`);
+          timing.cacheCheck = cacheCheckTime;
+          timing.total = Date.now() - departureStartTime;
+          timing.fromCache = true;
+          timingData.push(timing);
+
+          console.log(`✓ Cache HIT for ${card.departureTime} (${Math.round(age / 60000)}min old) - check: ${cacheCheckTime}ms, total: ${timing.total}ms`);
           departures.push(cachedDeparture.data);
           cacheHits++;
 
@@ -428,6 +489,7 @@ export async function scrapeSJ(
       }
 
       console.log(`⚙️  Cache ${options?.noCache ? 'DISABLED' : 'MISS'} for ${card.departureTime} (${cacheCheckTime}ms), scraping...`);
+      timing.cacheCheck = cacheCheckTime;
 
       try {
         // Click to navigate to departure details
@@ -459,14 +521,14 @@ export async function scrapeSJ(
           }, card.departureTime),
         ]);
 
-        const navTime = Date.now() - navStart;
-        console.log(`  ├─ Navigate to details: ${navTime}ms`);
+        timing.navigate = Date.now() - navStart;
+        console.log(`  ├─ Navigate to details: ${timing.navigate}ms`);
 
         // Extract prices (enable debug mode if single departure)
         const extractStart = Date.now();
         const prices = await extractPrices(page, !!options?.singleDeparture);
-        const extractTime = Date.now() - extractStart;
-        console.log(`  ├─ Extract prices: ${extractTime}ms`);
+        timing.extract = Date.now() - extractStart;
+        console.log(`  ├─ Extract prices: ${timing.extract}ms`);
 
         // Debug logging for single departure mode
         if (options?.singleDeparture) {
@@ -496,8 +558,8 @@ export async function scrapeSJ(
           data: departure,
           timestamp: Date.now(),
         });
-        const cacheWriteTime = Date.now() - cacheWriteStart;
-        console.log(`  ├─ Cache write: ${cacheWriteTime}ms`);
+        timing.cacheWrite = Date.now() - cacheWriteStart;
+        console.log(`  ├─ Cache write: ${timing.cacheWrite}ms`);
 
         // Send individual departure if callback provided
         if (onDeparture) {
@@ -517,19 +579,22 @@ export async function scrapeSJ(
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
         // Additional wait for React/Vue to hydrate the components
         await new Promise((resolve) => setTimeout(resolve, 500));
-        const backTime = Date.now() - backStart;
-        console.log(`  ├─ Navigate back: ${backTime}ms`);
+        timing.navigateBack = Date.now() - backStart;
+        console.log(`  ├─ Navigate back: ${timing.navigateBack}ms`);
 
-        const totalDepartureTime = Date.now() - departureStartTime;
-        console.log(`  └─ Total for ${card.departureTime}: ${totalDepartureTime}ms (${(totalDepartureTime / 1000).toFixed(1)}s)`);
+        timing.total = Date.now() - departureStartTime;
+        timingData.push(timing);
+        console.log(`  └─ Total for ${card.departureTime}: ${timing.total}ms (${(timing.total / 1000).toFixed(1)}s)`);
 
         // No artificial delay needed - navigation waits ensure page is ready
       }
       catch (error) {
         skippedCount++;
         failedDepartures.push(card.departureTime); // Track failed departure
-        const totalDepartureTime = Date.now() - departureStartTime;
-        console.error(`❌ Error processing departure ${i + 1}/${cardsToProcess.length} (${card.departureTime} → ${card.arrivalTime}) after ${totalDepartureTime}ms:`, error);
+        timing.total = Date.now() - departureStartTime;
+        timing.failed = true;
+        timingData.push(timing);
+        console.error(`❌ Error processing departure ${i + 1}/${cardsToProcess.length} (${card.departureTime} → ${card.arrivalTime}) after ${timing.total}ms:`, error);
         // Continue with next departure
       }
     }
@@ -539,7 +604,14 @@ export async function scrapeSJ(
     }
 
     const scraped = departures.length - cacheHits;
-    console.log(`✓ Scraping complete. Total: ${departures.length} departures (${cacheHits} from cache, ${scraped} scraped, ${skippedCount} skipped)`);
+    const totalTime = Date.now() - scrapeStartTime;
+
+    // Calculate timing statistics
+    const totalDepartureTime = timingData.reduce((sum, t) => sum + t.total, 0);
+    const averagePerDeparture = timingData.length > 0 ? totalDepartureTime / timingData.length : 0;
+
+    console.log(`✓ Scraping ${aborted ? 'ABORTED' : 'complete'}. Total: ${departures.length} departures (${cacheHits} from cache, ${scraped} scraped, ${skippedCount} skipped)`);
+    console.log(`⏱️  Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s), Average per departure: ${Math.round(averagePerDeparture)}ms`);
 
     // Determine if results are incomplete
     const isIncomplete = (skippedCount > 0);
@@ -553,6 +625,23 @@ export async function scrapeSJ(
       incomplete: isIncomplete,
       failedDepartures: isIncomplete ? failedDepartures : [],
     });
+
+    // Save timing data to cache
+    const timingKey = `sj:timing:${from}:${to}:${date}:${Date.now()}`;
+    const timingResult = {
+      route: `${from} → ${to}`,
+      date,
+      timestamp: new Date().toISOString(),
+      totalTime,
+      scrollTime,
+      averagePerDeparture,
+      aborted,
+      departures: timingData,
+    };
+    await storage.setItem(timingKey, timingResult, {
+      ttl: 86400, // Keep for 24 hours
+    });
+    console.log(`💾 Timing data saved to cache: ${timingKey}`);
 
     // Calculate stats
     const clicksSaved = departures.length;
@@ -569,6 +658,13 @@ export async function scrapeSJ(
       },
       incomplete: isIncomplete,
       failedCount: skippedCount,
+      aborted,
+      timings: {
+        departures: timingData,
+        totalTime,
+        scrollTime,
+        averagePerDeparture,
+      },
     };
   } finally {
     if (browser) {

@@ -33,6 +33,8 @@ npm run lint
 npm run lint:fix
 ```
 
+Chrome MCP Server is available for testing
+
 ## Architecture Overview
 
 ### Core Technologies
@@ -338,6 +340,30 @@ The project uses [Nuxt UI v4](https://ui.nuxt.com/) for all UI components. Alway
 - [ ] Email alerts for price drops
 - [ ] Favorite routes
 - [ ] Mobile app (PWA)
+
+## Performance Testing & Documentation
+
+**CRITICAL**: Always document performance tests and experiments in `PERFORMANCE_TESTS.md`, even if reverted. This prevents wasting time re-testing the same approaches.
+
+### Documentation Requirements
+When testing performance optimizations:
+1. **Before testing**: Document the hypothesis and expected improvement
+2. **During testing**: Record actual measurements (timing data from cache)
+3. **After testing**: Document results and decision (keep/revert)
+4. **Always commit**: Even failed experiments must be documented
+
+### Timing Data Collection
+The scraper automatically collects comprehensive timing data:
+- Saved to cache: `sj:timing:{from}:{to}:{date}:{timestamp}`
+- TTL: 24 hours
+- Includes per-departure breakdown and overall statistics
+- Use this data to measure impact of changes
+
+### Stop Button (Local Only)
+For development convenience:
+- Red "Stop" button appears during scraping (local environment only)
+- Gracefully aborts after current departure
+- Useful to avoid waiting for long scrapes during testing
 
 ## Working Preferences
 - Full autonomy granted for all file operations in this directory
