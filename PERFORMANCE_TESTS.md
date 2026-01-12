@@ -77,12 +77,53 @@ Each test should include:
 - Should fix "Card not found" errors
 
 **Measurements**:
-- Previous: Navigate back took ~3.3-3.5s per departure (page reload)
-- Testing: Browser back + scroll (waiting for test results...)
+- **Previous**: Navigate back ~3.3-3.5s (page reload, no scroll) → Card not found errors
+- **Browser back + scroll**: Navigate back ~5.6-5.7s total
+  - Scroll alone: ~5.2-5.3s (using 1.5s delay between attempts)
+  - Browser back: ~0.3-0.4s
+  - **Result**: SLOWER than page reload!
+  - **Failed** after 13/27 departures: "Waiting for selector failed" (DOM stale issues)
+- Average per departure: 6077ms (much worse than expected)
+
+**Result**: ❌ **REVERT** - Browser back is slower due to mandatory scroll, plus DOM stability issues
+
+**Why it failed**:
+1. Scrolling takes 5.2s every time (with 1.5s delays)
+2. Page reload was only 3.3-3.5s, so reload + fast scroll should be better
+3. Browser back has DOM stability issues after multiple navigations (confirming CLAUDE.md warning)
+
+**Next approach**: Try page.goto (reload) + optimized scroll (faster delay)
+
+**Commit**: `8f60249` (will be reverted)
+
+---
+
+## 2026-01-12: Page Reload + Fast Scroll
+
+**Hypothesis**: Page reload is more stable than browser back. Use page.goto but optimize scroll speed (300ms vs 1500ms delays).
+
+**Implementation**:
+- Reverted back to `page.goto(url)` for DOM stability
+- Added `scrollToBottom()` after reload with optimized parameters:
+  - `scrollDelay: 300` (was 1500ms default - 5x faster)
+  - `maxScrollTime: 10000` (10s limit)
+- Applied fast scroll to both initial load and after each back navigation
+
+**Files Modified**:
+- `server/api/scrape.ts` - page.goto with fast scroll parameters
+
+**Expected Improvement**:
+- Page reload: ~3.3-3.5s (known from previous data)
+- Fast scroll: ~1-1.5s (vs 5.2s with slow scroll)
+- Total: ~4.5-5s per departure
+- Should fix "Card not found" errors AND be faster than browser back
+- DOM stability (no stale element issues)
+
+**Measurements**: [To be added after testing]
 
 **Result**: [To be determined - TESTING IN PROGRESS]
 
-**Commit**: `8f60249`
+**Commit**: [To be added]
 
 ---
 

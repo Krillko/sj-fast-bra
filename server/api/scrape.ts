@@ -354,10 +354,10 @@ export async function scrapeSJ(
     // Wait for departure cards to load
     await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorWait });
 
-    // Scroll to load all departures
+    // Scroll to load all departures (fast scroll with 300ms delays)
     console.log('Scrolling to load all departures...');
     const scrollStart = Date.now();
-    await scrollToBottom(page);
+    await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
     scrollTime = Date.now() - scrollStart;
 
     // Extract departure card data
@@ -571,17 +571,17 @@ export async function scrapeSJ(
           onProgress(i + 1, cardsToProcess.length);
         }
 
-        // Navigate back to results page
-        // TESTING: Using browser back instead of page reload (should be faster with cache)
+        // Navigate back to results page (reload for fresh DOM)
         const backStart = Date.now();
-        await page.goBack({ waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
+        const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
-        // Scroll to bottom again to ensure all lazy-loaded cards are available
-        console.log('  ├─ Scrolling to load all cards after back navigation...');
-        await scrollToBottom(page);
+        // Scroll to bottom with FAST delays (300ms) to trigger lazy loading quickly
+        console.log('  ├─ Fast scrolling to load all cards...');
+        await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
         timing.navigateBack = Date.now() - backStart;
-        console.log(`  ├─ Navigate back (with scroll): ${timing.navigateBack}ms`);
+        console.log(`  ├─ Navigate back (reload + fast scroll): ${timing.navigateBack}ms`);
 
         timing.total = Date.now() - departureStartTime;
         timingData.push(timing);
