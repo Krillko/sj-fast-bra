@@ -402,15 +402,8 @@ export async function scrapeSJ(
       }
     }
 
-    // TESTING: Skip departure #9 (10:07) to see if #10 works (is it counter-based or that specific departure?)
-    const isLocal = (process.env.NUXT_PUBLIC_ENVIRONMENT === 'local');
-    if (isLocal && !options?.singleDeparture) {
-      const skip10_07 = departureCards.find((c) => c.departureTime === '10:07');
-      if (skip10_07) {
-        cardsToProcess = cardsToProcess.filter((c) => c.departureTime !== '10:07');
-        console.log(`🧪 TEST: Skipping 10:07 departure to test if it's that specific departure or counter #9`);
-      }
-    }
+    // Counter-based blocking confirmed: SJ.se blocks after 8 successful departure clicks
+    // Skip logic removed - keeping for reference in git history
 
     // Notify about total count
     if (onProgress) {

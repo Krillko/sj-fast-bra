@@ -200,11 +200,57 @@ Each test should include:
 - **Scenario A**: Fails at new position #9 → Counter-based blocking (need to restart browser or use different approach)
 - **Scenario B**: Succeeds past 8 departures → 10:07 departure is broken (can skip it or investigate why)
 
-**Measurements**: [Waiting for test results...]
+**Measurements**:
+- Successfully skipped 10:07 departure (total: 26 instead of 27)
+- Processed departures 1-8 successfully
+- Position #9 is now 11:07 (instead of 10:07)
+- **FAILED at position #9 (11:07)** with navigation timeout after 90s
+- Same error, different departure
 
-**Result**: [To be determined - TESTING IN PROGRESS]
+**Result**: ✅ **CONFIRMED - Scenario A: Counter-Based Blocking**
+
+**Conclusion**:
+- NOT the 10:07 departure specifically
+- It's the **9th REQUEST** that gets blocked
+- SJ.se has anti-scraping detection that blocks after 8 successful clicks
+- The blocking is position-based, not time-based or departure-specific
+
+**Root Cause**: After 8 successful departure detail page navigations, SJ.se stops responding to the 9th navigation request. This is a hard block, not rate limiting (delays don't help, timeout doesn't help).
 
 **Commit**: `2dff5d8`
+
+---
+
+## Solutions for Counter-Based Blocking
+
+### Option 1: Browser Restart Every 8 Departures (Recommended)
+- Close and reopen Puppeteer browser after every 8 departures
+- Reset the counter from SJ.se's perspective
+- Pros: Should work reliably
+- Cons: Slower (browser restart overhead), more complex code
+
+### Option 2: Request Official API Access
+- Contact SJ.se and explain the use case
+- Request API access or higher rate limits
+- Pros: Proper solution, more reliable
+- Cons: May not be granted, takes time
+
+### Option 3: Accept the Limitation
+- Only scrape first 8 departures per route
+- For routes with >8 departures, show "View more on SJ.se" link
+- Pros: Simple, no workarounds
+- Cons: Incomplete data for popular routes
+
+### Option 4: Session Refresh Strategy
+- Try refreshing cookies/session between batches
+- May or may not work (needs testing)
+- Pros: Lighter than full browser restart
+- Cons: May not reset the counter
+
+### Next Steps
+1. Implement Option 1 (browser restart) as it's most likely to work
+2. Test if browser restart resets the counter
+3. If successful, optimize restart timing and caching strategy
 
 ---
 
