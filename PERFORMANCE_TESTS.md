@@ -162,11 +162,49 @@ Each test should include:
 - If 90s timeout helps: It's slow response, not blocking
 - If still fails at #9: Likely hard block or specific departure issue
 
+**Measurements**:
+- Total time: 156.6s (vs 80s without delays)
+- Average per departure: 16.3s (vs 8-10s)
+- 2s delays ARE working (visible in logs)
+- Still failed at departure #9 (10:07) after waiting FULL 92 seconds (90s timeout + 2s delay)
+
+**Result**: ❌ **FAILED** - Delays and higher timeout didn't help
+
+**Conclusion**:
+- NOT rate limiting (delays didn't help)
+- NOT slow response (90s is plenty)
+- Either:
+  1. Hard block after 8 requests (counter-based)
+  2. OR that specific 10:07 departure is broken
+
+**Commit**: `8c3db47`
+
+---
+
+## 2026-01-12: Skip Test - Is it Counter #9 or Departure 10:07?
+
+**Hypothesis**: Need to determine if the issue is:
+- Position #9 in sequence (counter-based blocking)
+- OR specifically the 10:07 departure (broken/different structure)
+
+**Implementation**:
+- Skip 10:07 departure entirely (local only)
+- Process departures 1-8, then skip to #10 (10:01 → next departure)
+- If it fails at new position #9: It's counter-based
+- If it succeeds past 8 departures: It's specifically 10:07 that's broken
+
+**Files Modified**:
+- `server/api/scrape.ts` - Add skip logic for 10:07 departure
+
+**Expected Results**:
+- **Scenario A**: Fails at new position #9 → Counter-based blocking (need to restart browser or use different approach)
+- **Scenario B**: Succeeds past 8 departures → 10:07 departure is broken (can skip it or investigate why)
+
 **Measurements**: [Waiting for test results...]
 
 **Result**: [To be determined - TESTING IN PROGRESS]
 
-**Commit**: `8c3db47`
+**Commit**: [To be added]
 
 ---
 
