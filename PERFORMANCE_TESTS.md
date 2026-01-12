@@ -127,6 +127,49 @@ Each test should include:
 
 ---
 
+## 2026-01-12: Consistent Failure at Departure #9 (10:07)
+
+**Issue**: Scraper ALWAYS fails at departure #9 (10:07 → 14:36) with "Navigation timeout of 30000 ms exceeded"
+- Happens consistently on multiple dates (2026-01-15, 2026-01-16)
+- First 8 departures succeed (~80-85 seconds total)
+- 9th departure times out waiting for navigation after clicking card
+- This route used to work previously
+
+**Hypothesis**:
+1. **Anti-scraping detection** (most likely): SJ.se detects pattern after 8 requests and rate limits/blocks
+2. **That specific departure**: 10:07 train has different structure/requirements
+3. **Browser exhaustion**: Memory/connection issues after 8 page reloads
+4. **Session expiration**: Something expires after ~80 seconds
+
+**Pattern Analysis**:
+- Succeeds: Departures 1-8 (06:01, 06:07, 07:01, 07:07, 08:07, 09:07, 09:18, 10:01)
+- Fails: Departure 9 (10:07) - ALWAYS this specific time
+- Error: Navigation timeout after 30s
+- No pattern change in network timing before failure
+
+**Implementation (Testing Anti-Scraping Theory)**:
+- Increased `navigationClick` timeout: 30s → 90s (to see if it eventually loads)
+- Increased `navigateBack` timeout: 30s → 60s
+- Increased `selectorAfterBack`: 10s → 20s
+- **Added 2s delay between departures** to slow down and appear more human-like
+
+**Files Modified**:
+- `nuxt.config.ts` - Increased timeouts, added delayBetweenDepartures
+- `server/api/scrape.ts` - Implement delay between departures
+
+**Expected Results**:
+- If it's rate limiting: 2s delays might help get past 9 departures
+- If 90s timeout helps: It's slow response, not blocking
+- If still fails at #9: Likely hard block or specific departure issue
+
+**Measurements**: [Waiting for test results...]
+
+**Result**: [To be determined - TESTING IN PROGRESS]
+
+**Commit**: [To be added]
+
+---
+
 ## Future Tests
 
 Document all future performance experiments below, even if they fail.

@@ -491,6 +491,13 @@ export async function scrapeSJ(
       console.log(`⚙️  Cache ${options?.noCache ? 'DISABLED' : 'MISS'} for ${card.departureTime} (${cacheCheckTime}ms), scraping...`);
       timing.cacheCheck = cacheCheckTime;
 
+      // Add delay between departures to avoid rate limiting (only when scraping, not from cache)
+      if (i > 0 && config.scraper.delayBetweenDepartures) {
+        const delay = config.scraper.delayBetweenDepartures;
+        console.log(`  ├─ Waiting ${delay}ms to avoid rate limiting...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+
       try {
         // Click to navigate to departure details
         // Find the card fresh each time by matching departure time (avoid stale DOM references)
