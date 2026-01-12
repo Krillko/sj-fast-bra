@@ -51,10 +51,12 @@ export default defineEventHandler(async(event) => {
           total: number;
           departureTimes: string[];
           timestamp: number;
+          incomplete?: boolean;
+          failedDepartures?: string[];
         }>(metaCacheKey);
 
-        // If metadata exists and is recent (within 1 hour), load from individual caches
-        if (metaCache?.timestamp && (Date.now() - metaCache.timestamp) < 3600000) {
+        // If metadata exists and is recent (within 1 hour) AND is complete, load from individual caches
+        if (metaCache?.timestamp && (Date.now() - metaCache.timestamp) < 3600000 && !metaCache.incomplete) {
           console.log(`✓ Route metadata cache HIT - loading ${metaCache.total} departures from cache`);
 
           // Load all departures from individual caches
@@ -90,9 +92,14 @@ export default defineEventHandler(async(event) => {
           await eventStream.close();
           return;
         }
+
+        // Check if cache exists but is incomplete
+        if (metaCache?.incomplete) {
+          console.log(`⚠️  Route metadata cache exists but is INCOMPLETE (${metaCache.failedDepartures?.length || 0} failed) - re-scraping`);
+        }
       }
 
-      // No cached data available, start scraping
+      // No cached data available or incomplete, start scraping
       console.log(`⚙️  ${noCache ? 'Cache DISABLED' : 'Route metadata cache MISS'} - starting scrape`);
 
       // Send initial status

@@ -236,6 +236,16 @@ Goal: Provide "Book this train" button that deep links with specific departure p
 - **Nitro Storage:**
   - Local: Filesystem (`.cache/` directory)
   - Production: Cloudflare KV binding
+- **Runtime Config:**
+  - Scraper timeouts (configurable in `runtimeConfig.scraper.timeouts`):
+    - `initialPageLoad`: 60000ms - Initial navigation to search results
+    - `selectorWait`: 20000ms - Wait for departure cards to load
+    - `navigationClick`: 30000ms - Wait for navigation after clicking departure
+    - `navigateBack`: 30000ms - Wait for navigation back to results
+    - `selectorAfterBack`: 10000ms - Wait for departure cards after going back
+
+### Scraper Timeouts
+All Puppeteer timeouts are configured in `nuxt.config.ts` under `runtimeConfig.scraper.timeouts`. You can adjust these values if experiencing timeout issues with the SJ.se website. All values are in milliseconds.
 
 ### Cities
 - **Total:** 50+ Swedish train stations

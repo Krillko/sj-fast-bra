@@ -36,6 +36,8 @@ interface ScrapeResult {
     clicksSaved: number;
     pagesVisited: number;
   };
+  incomplete?: boolean;
+  failedCount?: number;
 }
 
 /**
@@ -285,6 +287,8 @@ export async function scrapeSJ(
 ): Promise<ScrapeResult> {
   let browser: Browser | null = null;
   const storage = useStorage('cache');
+  const config = useRuntimeConfig();
+  const timeouts = config.scraper.timeouts;
 
   try {
     console.log(`🚂 Starting scrape: ${from} → ${to} on ${date}`);
@@ -315,13 +319,13 @@ export async function scrapeSJ(
     const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
     console.log(`Navigating to: ${url}`);
 
-    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.initialPageLoad });
 
     // Accept cookies
     await acceptCookies(page);
 
     // Wait for departure cards to load
-    await page.waitForSelector('[data-testid]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorWait });
 
     // Scroll to load all departures
     console.log('Scrolling to load all departures...');
@@ -378,6 +382,7 @@ export async function scrapeSJ(
     const departures: Departure[] = [];
     let skippedCount = 0;
     let cacheHits = 0;
+    const failedDepartures: string[] = []; // Track which departures failed
 
     for (let i = 0; i < cardsToProcess.length; i++) {
       const card = cardsToProcess[i];
@@ -430,7 +435,7 @@ export async function scrapeSJ(
         const navStart = Date.now();
 
         await Promise.all([
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }),
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: timeouts.navigationClick }),
           page.evaluate((departureTime: string) => {
             // Find all departure cards
             const cards = document.querySelectorAll('[data-testid*="-"]');
@@ -507,9 +512,9 @@ export async function scrapeSJ(
         // Navigate back to results page (reload for fresh DOM instead of browser back)
         const backStart = Date.now();
         const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: 10000 });
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
-        await page.waitForSelector('[data-testid]', { timeout: 5000 });
+        await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
         // Additional wait for React/Vue to hydrate the components
         await new Promise((resolve) => setTimeout(resolve, 500));
         const backTime = Date.now() - backStart;
@@ -522,6 +527,7 @@ export async function scrapeSJ(
       }
       catch (error) {
         skippedCount++;
+        failedDepartures.push(card.departureTime); // Track failed departure
         const totalDepartureTime = Date.now() - departureStartTime;
         console.error(`❌ Error processing departure ${i + 1}/${cardsToProcess.length} (${card.departureTime} → ${card.arrivalTime}) after ${totalDepartureTime}ms:`, error);
         // Continue with next departure
@@ -535,12 +541,17 @@ export async function scrapeSJ(
     const scraped = departures.length - cacheHits;
     console.log(`✓ Scraping complete. Total: ${departures.length} departures (${cacheHits} from cache, ${scraped} scraped, ${skippedCount} skipped)`);
 
+    // Determine if results are incomplete
+    const isIncomplete = (skippedCount > 0);
+
     // Store route metadata for future quick lookups
     const metaCacheKey = `sj:meta:${from}:${to}:${date}`;
     await storage.setItem(metaCacheKey, {
       total: departures.length,
       departureTimes: departures.map((d) => d.departureTime),
       timestamp: Date.now(),
+      incomplete: isIncomplete,
+      failedDepartures: isIncomplete ? failedDepartures : [],
     });
 
     // Calculate stats
@@ -556,6 +567,8 @@ export async function scrapeSJ(
         clicksSaved,
         pagesVisited,
       },
+      incomplete: isIncomplete,
+      failedCount: skippedCount,
     };
   } finally {
     if (browser) {

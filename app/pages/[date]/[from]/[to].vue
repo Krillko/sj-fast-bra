@@ -324,6 +324,14 @@ alt="Sena Jämt">
               </p>
             </div>
 
+            <!-- Incomplete results warning -->
+            <div v-if="data.incomplete" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p class="text-sm text-red-800 dark:text-red-200">
+                <UIcon name="i-heroicons-exclamation-triangle" class="inline-block mr-1" />
+                <strong>Resultatet är ofullständigt.</strong> {{ data.failedCount }} avgång{{ data.failedCount === 1 ? '' : 'ar' }} kunde inte hämtas på grund av timeout eller anslutningsproblem. Prova att ladda om sidan för att försöka igen.
+              </p>
+            </div>
+
             <!-- Stats and scraped timestamp -->
             <div v-if="data.stats" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p class="text-sm text-blue-800 dark:text-blue-200">
@@ -598,6 +606,8 @@ const fetchWithProgress = async() => {
     scrapedAt: new Date().toISOString(),
     departures: [],
     stats: null,
+    incomplete: false,
+    failedCount: 0,
   };
 
   const params = new URLSearchParams({
