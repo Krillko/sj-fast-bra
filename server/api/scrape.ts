@@ -602,6 +602,8 @@ export async function scrapeSJ(
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
+        // Additional wait for React/Vue to hydrate the components after domcontentloaded
+        await new Promise((resolve) => setTimeout(resolve, 500));
         // Scroll to bottom with FAST delays (300ms) to trigger lazy loading quickly
         console.log('  ├─ Fast scrolling to load all cards...');
         await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
