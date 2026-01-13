@@ -591,7 +591,13 @@ export async function scrapeSJ(
 
         // Navigate back to results page (reload for fresh DOM)
         const backStart = Date.now();
+
+        // Debug: Log current state before navigating back
+        const currentUrl = page.url();
+        console.log(`  ├─ Current URL before navigate back: ${currentUrl}`);
+
         const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
+        console.log(`  ├─ Navigating back to: ${url}`);
         await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
