@@ -326,7 +326,7 @@ export async function scrapeSJ(
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
-    const page = await browser.newPage();
+    let page = await browser.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
     // Block unnecessary resources to speed up loading
