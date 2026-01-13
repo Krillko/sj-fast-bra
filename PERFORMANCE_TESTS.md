@@ -248,9 +248,47 @@ Each test should include:
 - Cons: May not reset the counter
 
 ### Next Steps
-1. Implement Option 1 (browser restart) as it's most likely to work
+1. ✅ Implement Option 1 (browser restart) - DONE
 2. Test if browser restart resets the counter
 3. If successful, optimize restart timing and caching strategy
+
+---
+
+## 2026-01-12: Browser Restart Solution (Option 1)
+
+**Implementation**: Restart Puppeteer browser every 8 scraped departures to reset SJ.se's counter.
+
+**How it works**:
+- Track `scrapedInCurrentSession` counter (only counts successful scrapes, not cache hits)
+- After 8 successful scrapes, before attempting #9:
+  1. Close current browser instance
+  2. Launch new browser with same configuration
+  3. Navigate to results page
+  4. Accept cookies
+  5. Scroll to load all cards
+  6. Reset counter to 0
+  7. Continue with departure #9
+
+**Implementation details**:
+- Only restarts if there are more departures to process
+- Failed departures don't increment counter
+- Cached departures don't increment counter (no scraping = no counter)
+- Browser restart timing tracked separately
+
+**Files Modified**:
+- `server/api/scrape.ts` - Added browser restart logic after 8 departures
+
+**Expected Results**:
+- Should bypass counter-based blocking
+- Restart overhead: ~10-15s (browser launch + navigate + scroll)
+- Trade-off: Slower but complete data
+- For 27 departures: 3 restarts (after #8, #16, #24)
+
+**Measurements**: [Waiting for test results...]
+
+**Result**: [To be determined - TESTING IN PROGRESS]
+
+**Commit**: [To be added]
 
 ---
 

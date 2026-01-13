@@ -416,6 +416,8 @@ export async function scrapeSJ(
     let cacheHits = 0;
     const failedDepartures: string[] = []; // Track which departures failed
     let aborted = false;
+    let scrapedInCurrentSession = 0; // Track scraped (not cached) departures in current browser session
+    const RESTART_THRESHOLD = 8; // Restart browser after this many scraped departures
 
     for (let i = 0; i < cardsToProcess.length; i++) {
       const card = cardsToProcess[i];
@@ -596,6 +598,69 @@ export async function scrapeSJ(
         timing.total = Date.now() - departureStartTime;
         timingData.push(timing);
         console.log(`  └─ Total for ${card.departureTime}: ${timing.total}ms (${(timing.total / 1000).toFixed(1)}s)`);
+
+        // Increment counter for scraped departures in current browser session
+        scrapedInCurrentSession++;
+
+        // Check if we need to restart browser (after 8 scraped departures)
+        // Only restart if we have more departures to process
+        const hasMoreDepartures = (i + 1 < cardsToProcess.length);
+        if (scrapedInCurrentSession >= RESTART_THRESHOLD && hasMoreDepartures) {
+          console.log(`\n🔄 Restarting browser after ${scrapedInCurrentSession} departures to avoid anti-scraping detection...`);
+          const restartStart = Date.now();
+
+          // Close current browser
+          await browser.close();
+          browser = null;
+
+          // Launch new browser
+          browser = await puppeteer.launch({
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-blink-features=AutomationControlled',
+            ],
+          });
+
+          page = await browser.newPage();
+
+          // Set user agent
+          await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          );
+
+          // Block unnecessary resources for faster loading
+          await page.setRequestInterception(true);
+          page.on('request', (req) => {
+            const resourceType = req.resourceType();
+            if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+              req.abort();
+            }
+            else {
+              req.continue();
+            }
+          });
+
+          // Navigate to results page
+          console.log(`  ├─ Navigating to results page...`);
+          const resultsUrl = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
+          await page.goto(resultsUrl, { waitUntil: 'networkidle0', timeout: timeouts.initialPageLoad });
+
+          // Accept cookies
+          await acceptCookies(page);
+
+          // Scroll to load all departures
+          console.log(`  ├─ Scrolling to load all cards...`);
+          await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
+
+          const restartTime = Date.now() - restartStart;
+          console.log(`  └─ Browser restarted in ${restartTime}ms (${(restartTime / 1000).toFixed(1)}s)`);
+
+          // Reset session counter
+          scrapedInCurrentSession = 0;
+        }
 
         // No artificial delay needed - navigation waits ensure page is ready
       }
