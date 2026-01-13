@@ -598,7 +598,8 @@ export async function scrapeSJ(
 
         const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
         console.log(`  ├─ Navigating back to: ${url}`);
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.navigateBack });
+        // Use 'domcontentloaded' instead of 'networkidle0' - less strict, faster
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
         // Scroll to bottom with FAST delays (300ms) to trigger lazy loading quickly
