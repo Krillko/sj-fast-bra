@@ -307,6 +307,12 @@ export async function scrapeSJ(
   let browser: Browser | null = null;
   const storage = useStorage('cache');
   const config = useRuntimeConfig();
+
+  // Safety check for config
+  if (!config.scraper || !config.scraper.timeouts) {
+    throw new Error('Scraper configuration not found in runtime config');
+  }
+
   const timeouts = config.scraper.timeouts;
 
   // Track timing data
