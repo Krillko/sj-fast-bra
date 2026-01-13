@@ -288,7 +288,7 @@ Each test should include:
 
 **Result**: [To be determined - TESTING IN PROGRESS]
 
-**Commit**: [To be added]
+**Commit**: `450cfc1`
 
 ---
 
