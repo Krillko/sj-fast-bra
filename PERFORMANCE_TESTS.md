@@ -361,7 +361,7 @@ Each test should include:
 - Browser restart solution still in place (every 8 departures)
 - Changes focused on reliability over speed
 
-**Commit**: [Will be added after commit]
+**Commit**: `fe6400e`
 
 ---
 
