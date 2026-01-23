@@ -329,7 +329,12 @@ export async function scrapeSJ(
     // Launch browser
     browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--incognito',
+        '--disable-blink-features=AutomationControlled',
+      ],
     });
 
     let page = await browser.newPage();
@@ -514,6 +519,18 @@ export async function scrapeSJ(
         // Find the card fresh each time by matching departure time (avoid stale DOM references)
         const navStart = Date.now();
 
+        // CRITICAL: Wait for departure cards to actually be present before trying to click
+        // This ensures the cards are loaded and ready after navigate back + scroll
+        console.log(`  ├─ Waiting for departure cards to be ready...`);
+        await page.waitForFunction(() => {
+          const cards = document.querySelectorAll('[data-testid*="-"]');
+          const departureCards = Array.from(cards).filter((card) => {
+            const testId = card.getAttribute('data-testid');
+            return testId && testId.match(/^[0-9a-f-]{36}$/);
+          });
+          return departureCards.length > 0;
+        }, { timeout: 10000 });
+
         await Promise.all([
           page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: timeouts.navigationClick }),
           page.evaluate((departureTime: string) => {
@@ -523,6 +540,14 @@ export async function scrapeSJ(
               const testId = card.getAttribute('data-testid');
               return testId && testId.match(/^[0-9a-f-]{36}$/);
             });
+
+            // Debug: Log all available departure times
+            const availableTimes = departureCards.map((card) => {
+              const html = card.innerHTML;
+              const timeMatches = html.match(/\d{2}:\d{2}/g);
+              return timeMatches ? timeMatches[0] : 'no-time';
+            });
+            console.log(`DEBUG: Looking for ${departureTime}, available cards:`, availableTimes);
 
             // Find the card that matches this departure time
             for (const card of departureCards) {
@@ -535,7 +560,7 @@ export async function scrapeSJ(
                 return;
               }
             }
-            throw new Error(`Card for ${departureTime} not found`);
+            throw new Error(`Card for ${departureTime} not found. Available: ${availableTimes.join(', ')}`);
           }, card.departureTime),
         ]);
 
@@ -603,12 +628,17 @@ export async function scrapeSJ(
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
         // Additional wait for React/Vue to hydrate the components after domcontentloaded
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // CRITICAL: Need sufficient time for click handlers to be attached
+        console.log('  ├─ Waiting 2s for component hydration and click handlers...');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         // Scroll to bottom with FAST delays (300ms) to trigger lazy loading quickly
         console.log('  ├─ Fast scrolling to load all cards...');
         await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
+        // Additional wait after scrolling for page to fully stabilize
+        console.log('  ├─ Waiting 1s for page to stabilize after scroll...');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         timing.navigateBack = Date.now() - backStart;
-        console.log(`  ├─ Navigate back (reload + fast scroll): ${timing.navigateBack}ms`);
+        console.log(`  ├─ Navigate back (reload + fast scroll + stabilize): ${timing.navigateBack}ms`);
 
         timing.total = Date.now() - departureStartTime;
         timingData.push(timing);
@@ -635,6 +665,7 @@ export async function scrapeSJ(
               '--no-sandbox',
               '--disable-setuid-sandbox',
               '--disable-dev-shm-usage',
+              '--incognito',
               '--disable-blink-features=AutomationControlled',
             ],
           });
@@ -671,7 +702,12 @@ export async function scrapeSJ(
           await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
 
           const restartTime = Date.now() - restartStart;
-          console.log(`  └─ Browser restarted in ${restartTime}ms (${(restartTime / 1000).toFixed(1)}s)`);
+          console.log(`  ├─ Browser restarted in ${restartTime}ms (${(restartTime / 1000).toFixed(1)}s)`);
+
+          // Wait 60 seconds after restart to avoid IP-based rate limiting
+          console.log(`  ├─ Waiting 60s to reset IP-based rate limit...`);
+          await new Promise((resolve) => setTimeout(resolve, 60000));
+          console.log(`  └─ Ready to continue after 60s wait`);
 
           // Reset session counter
           scrapedInCurrentSession = 0;

@@ -292,15 +292,87 @@ Each test should include:
 
 ---
 
+## 2026-01-23: Navigate Back Timeout Fix + DOM Stability Improvements
+
+**Issue**: After implementing browser restart solution, scraper started failing on FIRST departure with "Navigation timeout" on the navigate BACK step (not the #9 blocking).
+
+**Root Cause Analysis**:
+- Changed from `page.goto(url)` to `domcontentloaded` fixed initial timeout
+- But then got "Card not found" errors on departure #2
+- Issue: DOM loaded but React/Vue components not yet hydrated (click handlers not attached)
+
+**Implementation - Phase 1: Navigate Back Fix**:
+- Changed `waitUntil: 'networkidle0'` to `waitUntil: 'domcontentloaded'`
+  - `networkidle0` waits for no network activity for 500ms, which might never happen with SJ.se's background requests
+  - `domcontentloaded` only waits for DOM to load, much more reliable
+- Added 500ms hydration wait after DOM load → Still failed
+
+**Implementation - Phase 2: DOM Stability Improvements**:
+- Increased hydration wait: 500ms → 2000ms (allow full React/Vue initialization)
+- Added 1000ms stabilization wait after scrolling (ensure cards fully rendered)
+- Added 60s wait after browser restart (give fresh browser time to stabilize)
+- Added explicit `waitForFunction` to verify departure cards are present before clicking:
+  ```typescript
+  await page.waitForFunction(() => {
+    const cards = document.querySelectorAll('[data-testid*="-"]');
+    const departureCards = Array.from(cards).filter((card) => {
+      const testId = card.getAttribute('data-testid');
+      return testId && testId.match(/^[0-9a-f-]{36}$/);
+    });
+    return departureCards.length > 0;
+  }, { timeout: 10000 });
+  ```
+
+**Implementation - Phase 3: Anti-Bot Measures**:
+- Added `--incognito` flag to browser launch
+- Added `--disable-blink-features=AutomationControlled` to hide automation
+- Changed resource blocking: Keep stylesheets (only block images, fonts, media)
+  - Stylesheets needed for proper rendering timing
+
+**Implementation - Phase 4: Enhanced Debugging**:
+- Added logging of available departure times when card not found:
+  ```typescript
+  const availableTimes = departureCards.map((card) => {
+    const html = card.innerHTML;
+    const timeMatches = html.match(/\d{2}:\d{2}/g);
+    return timeMatches ? timeMatches[0] : 'no-time';
+  });
+  console.log(`DEBUG: Looking for ${departureTime}, available cards:`, availableTimes);
+  ```
+
+**Files Modified**:
+- `server/api/scrape.ts` - Navigate back fix, DOM stability improvements, anti-bot measures, debugging
+
+**Expected Results**:
+- Navigate back should complete successfully (domcontentloaded more reliable)
+- 2s hydration wait ensures React/Vue components fully initialized
+- 1s stabilization after scroll ensures cards ready for interaction
+- 60s post-restart wait gives fresh browser time to settle
+- waitForFunction explicitly verifies cards are present before proceeding
+- Anti-bot measures reduce detection risk
+
+**Measurements**: [Test needed to verify full route completion]
+
+**Result**: [To be determined - TESTING NEEDED]
+
+**Notes**:
+- Multiple timing adjustments made to ensure DOM stability
+- Trade-off: Slower but more reliable
+- Browser restart solution still in place (every 8 departures)
+- Changes focused on reliability over speed
+
+**Commit**: [Will be added after commit]
+
+---
+
 ## Future Tests
 
 Document all future performance experiments below, even if they fail.
 
 ### Ideas to Test
+- Validate if 2s hydration + 1s stabilization can be reduced once stability confirmed
+- Test if 60s post-restart wait can be reduced (may be overly conservative)
 - Reduce timeout values after fixing main issues
 - Parallel departure processing (risky - may trigger anti-scraping)
-- Different `waitUntil` strategies (`domcontentloaded` vs `networkidle0`)
-- Remove the 500ms hydration wait (now removed, but test if still needed)
 - Optimize cache read/write operations
-- Resource blocking optimizations (block more types?)
 - Skip scrolling if we know card is near the top
