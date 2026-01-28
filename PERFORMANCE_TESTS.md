@@ -347,7 +347,7 @@ Each test should include:
 - Not just counter-based blocking at #9, also element targeting manipulation at #2
 - Need fundamentally different approach (see next test)
 
-**Commit**: `[will be added]`
+**Commit**: `c6f43fd`
 
 ---
 
