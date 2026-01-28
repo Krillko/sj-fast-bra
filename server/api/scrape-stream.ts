@@ -6,6 +6,7 @@ interface ScrapeQuery {
   date: string;
   noCache?: string;
   singleDeparture?: string;
+  useParallelScrapers?: string;
 }
 
 /**
@@ -38,6 +39,7 @@ export default defineEventHandler(async(event) => {
   const isLocal = (process.env.NUXT_PUBLIC_ENVIRONMENT === 'local');
   const noCache = (isLocal && query.noCache === '1');
   const singleDeparture = (isLocal && query.singleDeparture) ? query.singleDeparture : undefined;
+  const useParallelScrapers = (query.useParallelScrapers === '1');
 
   // Start async scraping process (don't await - let it run in background)
   (async() => {
@@ -131,6 +133,7 @@ export default defineEventHandler(async(event) => {
         {
           noCache,
           singleDeparture,
+          useParallelScrapers,
         }
       );
 

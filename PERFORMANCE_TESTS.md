@@ -376,7 +376,52 @@ Each test should include:
 - For each departure, spawn isolated scraper that only clicks that one card
 - No state persists between departures (clean slate)
 
-**Status**: [To be implemented in next test]
+**Implementation**: ✅ **COMPLETED** - Parallel single-departure scrapers implemented
+
+**How it works:**
+1. Single "list scraper" extracts departure list (times, duration, changes, operator)
+2. Close initial browser
+3. For each departure:
+   - Launch completely fresh independent browser instance
+   - Navigate to results page
+   - Click ONE specific departure
+   - Extract prices
+   - Close browser immediately
+   - No back navigation needed!
+4. 1-second delay between spawning scrapers
+
+**Test Results (Stockholm → Malmö, 26 departures):**
+- Departures 1-8: ✅ All successful
+- Departure 9: ❌ Failed - Navigation timeout (90s)
+- Departures 10-26: ❌ All failed with same timeout
+
+**Key Finding - IP-Based Rate Limiting:**
+- Even with completely independent browsers (no shared state/cookies/sessions)
+- SJ.se tracks requests by IP address
+- Blocks after 8 successful departure detail page navigations
+- Block persists across all new browsers from same IP
+- Confirms this is NOT session-based or cookie-based
+
+**Advantages of parallel approach:**
+- Architecturally sound ✅
+- Mimics real user behavior (opening new tabs) ✅
+- No complex back navigation logic ✅
+- No DOM stability issues ✅
+- Each scraper is completely isolated ✅
+
+**Limitation:**
+- Cannot bypass IP-based rate limiting without:
+  - Proxy rotation infrastructure
+  - Much longer delays (10-30s between requests)
+  - Or accepting 8-departure limit
+
+**Files Modified:**
+- `server/api/scrape.ts` - Added `scrapeSingleDeparture()` function and parallel mode
+- `server/api/scrape-stream.ts` - Added `useParallelScrapers` query parameter
+
+**Status**: ✅ **WORKING** but limited to 8 departures per IP per session
+
+**Commit**: `[will be added]`
 
 ---
 

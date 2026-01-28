@@ -291,6 +291,142 @@ async function extractPrices(page: Page, debugMode = false): Promise<{
 }
 
 /**
+ * Scrapes a single departure independently with its own browser instance.
+ * This approach bypasses anti-scraping by making each scrape look like a separate user.
+ *
+ * @param from - Origin station
+ * @param to - Destination station
+ * @param date - Travel date (YYYY-MM-DD)
+ * @param departureTime - Specific departure time to scrape (HH:MM format)
+ * @param basicInfo - Basic info about the departure (from list view)
+ * @returns Full departure info with prices, or null if failed
+ */
+async function scrapeSingleDeparture(
+  from: string,
+  to: string,
+  date: string,
+  departureTime: string,
+  basicInfo: {
+    arrivalTime: string;
+    duration: string;
+    changes: number;
+    operator: string;
+  }
+): Promise<Departure | null> {
+  let browser: Browser | null = null;
+  const config = useRuntimeConfig();
+  const timeouts = config.scraper?.timeouts;
+
+  if (!timeouts) {
+    throw new Error('Scraper timeouts not configured');
+  }
+
+  try {
+    console.log(`  [${departureTime}] Launching independent scraper...`);
+
+    // Launch fresh browser for this departure only
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--incognito',
+        '--disable-blink-features=AutomationControlled',
+      ],
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080 });
+
+    // Set user agent
+    await page.setUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+
+    // Block unnecessary resources
+    await page.setRequestInterception(true);
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      if (['image', 'font', 'media'].includes(resourceType)) {
+        request.abort();
+      } else {
+        request.continue();
+      }
+    });
+
+    // Navigate to search results page
+    const url = `https://www.sj.se/en/search-journey/choose-journey/${encodeURIComponent(from)}/${encodeURIComponent(to)}/${date}`;
+    console.log(`  [${departureTime}] Navigating to results page...`);
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: timeouts.initialPageLoad });
+
+    // Accept cookies
+    await acceptCookies(page);
+
+    // Wait for departure cards to load
+    await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorWait });
+
+    // Single fast scroll to trigger hydration
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    console.log(`  [${departureTime}] Clicking departure card...`);
+
+    // Click the specific departure card
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: timeouts.navigationClick }),
+      page.evaluate((targetTime: string) => {
+        const cards = document.querySelectorAll('[data-testid*="-"]');
+        const departureCards = Array.from(cards).filter((card) => {
+          const testId = card.getAttribute('data-testid');
+          return testId && testId.match(/^[0-9a-f-]{36}$/);
+        });
+
+        for (const card of departureCards) {
+          const html = card.innerHTML;
+          const timeMatches = html.match(/\d{2}:\d{2}/g);
+          if (timeMatches && timeMatches[0] === targetTime) {
+            const button = card.querySelector('button');
+            if (!button) throw new Error('Button not found');
+            (button as HTMLButtonElement).click();
+            return;
+          }
+        }
+        throw new Error(`Card for ${targetTime} not found`);
+      }, departureTime),
+    ]);
+
+    console.log(`  [${departureTime}] Extracting prices...`);
+
+    // Extract prices
+    const prices = await extractPrices(page);
+
+    // Extract booking URL
+    const bookingUrl = page.url();
+
+    console.log(`  [${departureTime}] ✓ Success`);
+
+    return {
+      departureTime,
+      arrivalTime: basicInfo.arrivalTime,
+      duration: basicInfo.duration,
+      changes: basicInfo.changes,
+      operator: basicInfo.operator,
+      prices,
+      bookingUrl,
+    };
+  } catch (error) {
+    console.error(`  [${departureTime}] ✗ Failed:`, error instanceof Error ? error.message : error);
+    return null;
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}
+
+/**
  * Main scraping function with progress callback and granular caching.
  */
 export async function scrapeSJ(
@@ -302,6 +438,7 @@ export async function scrapeSJ(
   options?: {
     noCache?: boolean;
     singleDeparture?: string;
+    useParallelScrapers?: boolean;
   }
 ): Promise<ScrapeResult> {
   let browser: Browser | null = null;
@@ -421,7 +558,122 @@ export async function scrapeSJ(
       onProgress(0, cardsToProcess.length);
     }
 
-    // Scrape each departure sequentially with granular caching
+    // === PARALLEL SCRAPING MODE ===
+    // If requested, use independent single-departure scrapers instead of sequential approach
+    if (options?.useParallelScrapers) {
+      console.log('\n🔀 Using parallel single-departure scrapers (anti-scraping bypass mode)');
+
+      // Close the list-fetching browser
+      if (browser) {
+        await browser.close();
+        browser = null;
+      }
+
+      const departures: Departure[] = [];
+      let skippedCount = 0;
+      let cacheHits = 0;
+      const failedDepartures: string[] = [];
+
+      // Process each departure with its own browser instance
+      for (let i = 0; i < cardsToProcess.length; i++) {
+        const card = cardsToProcess[i];
+
+        console.log(`\n⏱️  [${i + 1}/${cardsToProcess.length}] ${card.departureTime} → ${card.arrivalTime}`);
+
+        // Check cache first
+        const depCacheKey = `sj:dep:${from}:${to}:${date}:${card.departureTime}`;
+        let cachedDeparture: { data: Departure; timestamp: number } | null = null;
+
+        if (!options?.noCache) {
+          cachedDeparture = await storage.getItem<{ data: Departure; timestamp: number }>(depCacheKey);
+        }
+
+        // Use cached data if available and fresh (1 hour TTL)
+        if (cachedDeparture?.timestamp && !options?.noCache) {
+          const age = Date.now() - cachedDeparture.timestamp;
+          if (age < 3600000) { // 1 hour
+            console.log(`  ✓ From cache (${Math.floor(age / 1000)}s old)`);
+            departures.push(cachedDeparture.data);
+            cacheHits++;
+
+            // Send individual departure if callback provided
+            if (onDeparture) {
+              onDeparture(cachedDeparture.data);
+            }
+
+            // Report progress
+            if (onProgress) {
+              onProgress(i + 1, cardsToProcess.length);
+            }
+
+            continue;
+          }
+        }
+
+        // Not in cache, scrape with independent browser
+        const departure = await scrapeSingleDeparture(from, to, date, card.departureTime, {
+          arrivalTime: card.arrivalTime,
+          duration: card.duration,
+          changes: card.changes,
+          operator: card.operator,
+        });
+
+        if (departure) {
+          departures.push(departure);
+
+          // Cache the result
+          await storage.setItem(depCacheKey, {
+            data: departure,
+            timestamp: Date.now(),
+          });
+
+          // Send individual departure if callback provided
+          if (onDeparture) {
+            onDeparture(departure);
+          }
+        } else {
+          console.log(`  ✗ Failed to scrape ${card.departureTime}`);
+          failedDepartures.push(card.departureTime);
+          skippedCount++;
+        }
+
+        // Report progress
+        if (onProgress) {
+          onProgress(i + 1, cardsToProcess.length);
+        }
+
+        // Small delay between spawning scrapers to avoid suspicion
+        if (i < cardsToProcess.length - 1) {
+          const delay = 1000; // 1 second between spawns
+          console.log(`  ⏳ Waiting ${delay}ms before next scraper...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+
+      // Calculate final stats
+      const totalTime = Date.now() - scrapeStartTime;
+      const averagePerDeparture = departures.length > 0 ? Math.floor(totalTime / departures.length) : 0;
+
+      console.log(`\n✓ Scraping complete. Total: ${departures.length} departures (${cacheHits} from cache, ${departures.length - cacheHits} scraped, ${skippedCount} skipped)`);
+      console.log(`⏱️  Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s), Average per departure: ${averagePerDeparture}ms`);
+
+      if (failedDepartures.length > 0) {
+        console.warn(`⚠️  Failed departures: ${failedDepartures.join(', ')}`);
+      }
+
+      return {
+        route: `${from} → ${to}`,
+        date,
+        scrapedAt: new Date().toISOString(),
+        departures,
+        stats: {
+          clicksSaved: cacheHits,
+          pagesVisited: 1 + (departures.length - cacheHits), // List page + 1 per scraped departure
+        },
+      };
+    }
+
+    // === SEQUENTIAL SCRAPING MODE (LEGACY) ===
     const departures: Departure[] = [];
     let skippedCount = 0;
     let cacheHits = 0;
