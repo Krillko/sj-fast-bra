@@ -365,10 +365,16 @@ export async function scrapeSJ(
     // Wait for departure cards to load
     await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorWait });
 
-    // Scroll to load all departures (fast scroll with 300ms delays)
-    console.log('Scrolling to load all departures...');
+    // Discovery: All departure cards are already in the DOM when page loads!
+    // But we need ONE fast scroll to bottom to trigger proper hydration/initialization
+    // This is much faster than incremental scrolling
+    console.log('Single scroll to bottom to trigger hydration...');
     const scrollStart = Date.now();
-    await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+    // Brief wait for hydration to complete after scroll
+    await new Promise((resolve) => setTimeout(resolve, 500));
     scrollTime = Date.now() - scrollStart;
 
     // Extract departure card data
@@ -531,6 +537,7 @@ export async function scrapeSJ(
           return departureCards.length > 0;
         }, { timeout: 10000 });
 
+        // Click the card
         await Promise.all([
           page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: timeouts.navigationClick }),
           page.evaluate((departureTime: string) => {
@@ -627,18 +634,15 @@ export async function scrapeSJ(
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeouts.navigateBack });
         // Wait for departure cards to be present and interactive
         await page.waitForSelector('[data-testid]', { timeout: timeouts.selectorAfterBack });
-        // Additional wait for React/Vue to hydrate the components after domcontentloaded
-        // CRITICAL: Need sufficient time for click handlers to be attached
-        console.log('  ├─ Waiting 2s for component hydration and click handlers...');
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        // Scroll to bottom with FAST delays (300ms) to trigger lazy loading quickly
-        console.log('  ├─ Fast scrolling to load all cards...');
-        await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
-        // Additional wait after scrolling for page to fully stabilize
-        console.log('  ├─ Waiting 1s for page to stabilize after scroll...');
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Single fast scroll to trigger hydration (not incremental scrolling!)
+        // Discovery: Cards are in DOM but need scroll to properly initialize
+        console.log('  ├─ Single scroll + hydration wait...');
+        await page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight);
+        });
+        await new Promise((resolve) => setTimeout(resolve, 500));
         timing.navigateBack = Date.now() - backStart;
-        console.log(`  ├─ Navigate back (reload + fast scroll + stabilize): ${timing.navigateBack}ms`);
+        console.log(`  ├─ Navigate back (reload + hydration): ${timing.navigateBack}ms`);
 
         timing.total = Date.now() - departureStartTime;
         timingData.push(timing);
@@ -697,9 +701,12 @@ export async function scrapeSJ(
           // Accept cookies
           await acceptCookies(page);
 
-          // Scroll to load all departures
-          console.log(`  ├─ Scrolling to load all cards...`);
-          await scrollToBottom(page, { scrollDelay: 300, maxScrollTime: 10000 });
+          // Single fast scroll to trigger hydration
+          console.log(`  ├─ Single scroll + hydration wait...`);
+          await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+          });
+          await new Promise((resolve) => setTimeout(resolve, 500));
 
           const restartTime = Date.now() - restartStart;
           console.log(`  ├─ Browser restarted in ${restartTime}ms (${(restartTime / 1000).toFixed(1)}s)`);

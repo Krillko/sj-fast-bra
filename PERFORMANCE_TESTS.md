@@ -292,7 +292,95 @@ Each test should include:
 
 ---
 
-## 2026-01-23: Navigate Back Timeout Fix + DOM Stability Improvements
+## 2026-01-28: Remove Scrolling - Cards Already in DOM (FAILED - Anti-Scraping)
+
+**Discovery**: User tested SJ.se in Chrome offline mode and found ALL departure cards are already in the DOM before scrolling. Scrolling is completely unnecessary!
+
+**Hypothesis**:
+- Cards exist in DOM immediately when page loads
+- Incremental scrolling (with 300ms delays) wastes 5+ seconds per departure
+- Should be able to skip scrolling entirely or use single fast scroll
+
+**Testing Results**:
+
+1. **Cards already present confirmation**:
+   ```
+   ⚠️  TEST: 72 cards exist BEFORE scrolling
+   ⚠️  TEST: 72 cards exist AFTER scrolling (difference: 0)
+   ```
+   - Initial load: 72 cards, scrolling adds 0
+   - After navigate back: 72 cards, scrolling adds 0
+   - Incremental scrolling wasted 1.3s initially, 5+ seconds on navigate back
+
+2. **Performance improvement with single scroll**:
+   - OLD (incremental scroll): Navigate back ~5-6s, Total per departure ~7-8s
+   - NEW (single scroll): Navigate back ~2s, Total per departure **2.2s** ✨
+   - **73% faster!** (7-8s → 2.2s per departure)
+
+**Critical Blocker - Consistent Failure Pattern**:
+- Departure #1: ✅ Works perfectly every time (2.2s)
+- Departure #2: ❌ ALWAYS fails with 90s navigation timeout
+- Error: Clicks wrong element (Storyblok `/components/content-and-register-interest` banner instead of departure card)
+- Vue Router warnings indicate navigation to promotional component, not departure details
+
+**What was tried**:
+1. No scrolling, just hydration wait → Fails on #2
+2. Single fast scroll to bottom → Fails on #2
+3. scrollIntoView before clicking → Fails on #2
+4. Increased hydration waits (500ms → 1.5s → 2s) → Fails on #2
+5. Removed scrollIntoView to avoid conflicts → Fails on #2
+
+**Pattern Analysis**:
+- Something about page state AFTER first departure makes clicks target wrong element
+- User tested in normal Chrome without ad blockers - no promotion banner visible
+- Likely anti-scraping: Page intentionally breaks after first successful navigation
+- Similar to previous counter-based blocking (fails at #9), but now fails at #2
+
+**Files Modified**:
+- `server/api/scrape.ts` - Removed incremental scrolling, added single fast scroll
+
+**Result**: ❌ **BLOCKED BY ANTI-SCRAPING** - Cannot proceed past departure #2
+
+**Conclusion**:
+- Performance improvement is real (73% faster when it works)
+- Anti-scraping detection is more aggressive than previously thought
+- Not just counter-based blocking at #9, also element targeting manipulation at #2
+- Need fundamentally different approach (see next test)
+
+**Commit**: `[will be added]`
+
+---
+
+## 2026-01-28: Proposed Solution - Parallel Single-Departure Scrapers
+
+**User's Insight**: "Perhaps test to just get the list, then have parsers going to the list clicking one departure each, not using scroll or back"
+
+**Proposed Architecture**:
+1. Single "list scraper" - Gets the departure list once (just the times/route info visible in list)
+2. Multiple "detail scrapers" - Each one:
+   - Launches fresh browser instance
+   - Navigates directly to results page
+   - Clicks ONE specific departure
+   - Extracts prices
+   - Closes browser
+   - No navigation back needed!
+
+**Advantages**:
+- Each scraper only makes 1 request to departure details (resets anti-scraping counter)
+- No navigate back complexity (fresh page state every time)
+- Can run in parallel for even faster scraping
+- Mimics real user behavior (open new tab for each departure)
+
+**Implementation Strategy**:
+- Extract departure list info (times, duration, changes) from search results
+- For each departure, spawn isolated scraper that only clicks that one card
+- No state persists between departures (clean slate)
+
+**Status**: [To be implemented in next test]
+
+---
+
+## 2026-01-23: Navigate Back Timeout Fix + DOM Stability Improvements (REVERTED)
 
 **Issue**: After implementing browser restart solution, scraper started failing on FIRST departure with "Navigation timeout" on the navigate BACK step (not the #9 blocking).
 
