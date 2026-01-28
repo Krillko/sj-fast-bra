@@ -112,6 +112,10 @@ TTL: 3600 seconds (1 hour)
 - **No direct URLs:** Options don't have unique identifiers in URL
 
 ### Scraping Flow
+
+**Two modes available:**
+
+#### 1. Sequential Mode (Legacy - Limited to ~8 departures)
 1. Navigate to SJ.se search results page
 2. Scroll incrementally to bottom to trigger lazy loading of all departures
 3. Wait for all content to load
@@ -120,10 +124,39 @@ TTL: 3600 seconds (1 hour)
    - Extract prices and availability for 3 tiers (Economy, Standard, First Class)
    - Extract booking link
    - Reload results page for next departure
+5. Browser restart after 8 departures (to reset session counter)
+
+**Limitation**: Hits IP-based rate limiting after ~8 total departures
+
+#### 2. Parallel Mode (Recommended - Same 8-departure limit but cleaner)
+1. Navigate to SJ.se search results page to get departure list
+2. Close initial browser
+3. For each departure (with 1s delay between):
+   - Launch fresh independent browser instance
+   - Navigate to results page
+   - Click specific departure card
+   - Extract prices
+   - Close browser
+4. No back navigation needed (simpler, more reliable)
+
+**Limitation**: Same IP-based rate limiting after 8 departures
+
+**Enable with**: `useParallelScrapers=1` query parameter (e.g., `/api/scrape-stream?useParallelScrapers=1&...`)
 
 ### Anti-Scraping Resilience (IMPORTANT)
 
 **Context**: SJ.se is a state-owned public service. If scraping issues arise, the approach should be diplomatic first (requesting API access) rather than aggressive workarounds.
+
+**CURRENT STATUS (2026-01-28):**
+- ⚠️ **IP-based rate limiting confirmed**: SJ.se blocks after 8 successful departure detail page loads per IP address
+- 🔄 **Parallel scraper architecture implemented**: Each departure uses independent browser instance (bypasses session/cookie tracking)
+- ❌ **Limitation**: Cannot bypass IP tracking without proxy rotation or accepting 8-departure limit
+- 📝 **See PERFORMANCE_TESTS.md** for detailed history of all anti-scraping tests and findings
+
+**Known Anti-Scraping Measures:**
+1. **IP-based rate limiting** - Blocks after 8 requests (confirmed 2026-01-28)
+2. **Counter-based blocking** - Previously blocked at departure #9 with sequential scraping (confirmed 2026-01-12)
+3. **DOM manipulation** - Page state changes after first departure in some tests
 
 **Critical Implementation Rules**:
 
