@@ -1,0 +1,20 @@
+{
+  // Cloudflare Workers deploy config for the Nitro `cloudflare_module` build.
+  // Build first with:  NITRO_PRESET=cloudflare_module NUXT_PUBLIC_ENVIRONMENT=production npm run build
+  // Then deploy with:  npx wrangler deploy
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sj-fast-bra",
+  "main": ".output/server/index.mjs",
+  "compatibility_date": "2026-06-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".output/public",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    // `id` is filled in after creating the namespace:
+    //   npx wrangler kv namespace create CACHE
+    { "binding": "CACHE", "id": "e434fe2b62794ce4bc31d2f78c75d659" }
+  ],
+  "observability": { "enabled": true }
+}

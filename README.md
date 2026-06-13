@@ -181,6 +181,42 @@ npm run lint
 npm run lint:fix
 ```
 
+## Deployment (Cloudflare Workers)
+
+The app deploys to Cloudflare Workers using Nitro's `cloudflare_module` preset. The
+KV namespace `CACHE` (bound in `wrangler.jsonc`) backs the production cache.
+
+### One-time setup
+
+```bash
+# Authenticate wrangler with your Cloudflare account (opens browser)
+npx wrangler login
+
+# Create the KV namespace and copy its id into wrangler.jsonc → kv_namespaces[].id
+npx wrangler kv namespace create CACHE
+```
+
+### Deploy
+
+```bash
+# Build with the Cloudflare preset + production env (so the KV cache driver is used)
+NITRO_PRESET=cloudflare_module NUXT_PUBLIC_ENVIRONMENT=production npm run build
+
+# Publish
+npx wrangler deploy
+```
+
+This produces a `https://sj-fast-bra.<your-subdomain>.workers.dev` URL.
+
+### Notes
+
+- **Subscription key:** `runtimeConfig.sj.subscriptionKey` ships a working public default;
+  override per-environment with the `SJ_SUBSCRIPTION_KEY` Worker secret/var if desired.
+- **Free-tier limit:** Cloudflare's free plan allows **50 external subrequests per request**.
+  Each search does 1 (search) + 1 (departures) + one offer call per departure, so routes
+  with more than ~48 departures (e.g. Stockholm↔Uppsala) return ~48 priced departures and
+  flag the result `incomplete`. The Workers Paid plan ($5/mo) raises the cap to 10,000.
+
 ## UI Components
 
 The project uses [Nuxt UI](https://ui.nuxt.com/), which provides:
