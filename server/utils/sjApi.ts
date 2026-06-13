@@ -5,7 +5,7 @@
  * prod-api.adp.sj.se. This module talks to that API directly instead of
  * scraping the rendered page with a headless browser, which is dramatically
  * faster and not subject to the per-IP "8 departures" block that the
- * browser-navigation approach hit (see PERFORMANCE_TESTS.md).
+ * browser-navigation approach hit (see HISTORY.md).
  *
  * Request flow (no login, no cookies — `credentials: omit` equivalent):
  *   1. POST   /public/sales/booking/v3/search                       → { departureSearchId, passengerListId }

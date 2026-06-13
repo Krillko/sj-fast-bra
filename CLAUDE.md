@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Nuxt 4 application that fetches train schedules and prices from SJ.se (Swedish Railways). The application serves as a search interface that provides cached train data and booking links.
 
-**Data source**: The app calls SJ's public booking JSON API (`prod-api.adp.sj.se`) directly — the same API the sj.se frontend uses. It does **not** use Puppeteer/browser automation anymore (see "Data Fetching" below and PERFORMANCE_TESTS.md for the history).
+**Data source**: The app calls SJ's public booking JSON API (`prod-api.adp.sj.se`) directly — the same API the sj.se frontend uses. It does **not** use Puppeteer/browser automation anymore (see "Data Fetching" below, and HISTORY.md for the full record of approaches tried).
 
-**Status**: Step 7 of PLAN.md is complete. The application has a fully functional UI with search, results display, real-time progress tracking, and comprehensive filtering options.
+**Status**: The application has a fully functional UI with search, results display, real-time progress tracking, and comprehensive filtering options.
 
 ## Development Commands
 
@@ -74,7 +74,7 @@ Chrome MCP Server is available for testing
 │   └── logo/
 │       └── Sena-Jamt.svg    # Application logo
 ├── nuxt.config.ts           # Nuxt configuration
-└── PLAN.md                  # Original implementation plan (reference)
+└── HISTORY.md               # Record of every data-fetching approach tried
 ```
 
 ### Data Flow
@@ -138,7 +138,7 @@ The frontend passes station **names**; the server resolves them to UIC codes via
 
 ### Why not Puppeteer?
 
-The original implementation scraped the rendered page with a headless browser. SJ blocked it after exactly 8 departure-detail page loads per IP. Extensive testing (see PERFORMANCE_TESTS.md) showed this was an artifact of the **browser navigation/fingerprinting**, not the API: direct API calls fetch all departures (tested 20+/20+, 76 for Stockholm→Uppsala) with no limit, in ~2s vs 20–90s. Puppeteer was removed entirely (revertable via git history).
+The original implementation scraped the rendered page with a headless browser. SJ blocked it after exactly 8 departure-detail page loads per IP. Extensive testing (see HISTORY.md) showed this was an artifact of the **browser navigation/fingerprinting**, not the API: direct API calls fetch all departures (tested 20+/20+, 76 for Stockholm→Uppsala) with no limit, in ~2s vs 20–90s. Puppeteer was removed entirely (revertable via git history).
 
 ### Notes / Edge Cases
 
@@ -315,29 +315,11 @@ The project uses [Nuxt UI v4](https://ui.nuxt.com/) for all UI components. Alway
 - [ ] Favorite routes
 - [ ] Mobile app (PWA)
 
-## Performance Testing & Documentation
+## Experiment History & Documentation
 
-**CRITICAL**: Always document performance tests and experiments in `PERFORMANCE_TESTS.md`, even if reverted. This prevents wasting time re-testing the same approaches.
+**CRITICAL**: `HISTORY.md` records every data-fetching approach we've tried (and why each failed or won). Read it before exploring alternative ways to get train data — it prevents re-testing dead ends (browser back-navigation, scroll tuning, parallel scrapers, the per-IP "8 departures" block, etc.).
 
-### Documentation Requirements
-When testing performance optimizations:
-1. **Before testing**: Document the hypothesis and expected improvement
-2. **During testing**: Record actual measurements (timing data from cache)
-3. **After testing**: Document results and decision (keep/revert)
-4. **Always commit**: Even failed experiments must be documented
-
-### Timing Data Collection
-The scraper automatically collects comprehensive timing data:
-- Saved to cache: `sj:timing:{from}:{to}:{date}:{timestamp}`
-- TTL: 24 hours
-- Includes per-departure breakdown and overall statistics
-- Use this data to measure impact of changes
-
-### Stop Button (Local Only)
-For development convenience:
-- Red "Stop" button appears during scraping (local environment only)
-- Gracefully aborts after current departure
-- Useful to avoid waiting for long scrapes during testing
+**`HISTORY.md` is a living document — keep appending to it.** Whenever you test a new approach, optimization, or workaround, or discover something notable about how SJ's API/site behaves, add a dated section with: hypothesis, what changed, measurements, and the keep/revert decision. Record failures too — that's the whole point (it stops us re-testing dead ends).
 
 ## Working Preferences
 - Full autonomy granted for all file operations in this directory

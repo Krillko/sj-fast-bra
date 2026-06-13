@@ -37,7 +37,7 @@ const DEPARTURE_TTL_MS = 3600000; // 1 hour
 /**
  * Fetch train departures with prices for a route via the SJ booking API.
  *
- * This replaces the previous Puppeteer scraper entirely (see PERFORMANCE_TESTS.md):
+ * This replaces the previous Puppeteer scraper entirely (see HISTORY.md):
  * three JSON calls instead of a headless browser, returning all departures in a
  * couple of seconds with no per-IP request limit.
  *

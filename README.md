@@ -1,6 +1,6 @@
 # SJ Tågsök - Fast Train Search
 
-A Nuxt 4 application that scrapes train schedules and prices from SJ.se (Swedish Railways) and provides a fast, comprehensive interface for comparing train options.
+A Nuxt 4 application that fetches train schedules and prices from SJ.se (Swedish Railways) via SJ's public booking API and provides a fast, comprehensive interface for comparing train options.
 
 ## Features
 
@@ -8,7 +8,7 @@ A Nuxt 4 application that scrapes train schedules and prices from SJ.se (Swedish
 - 💰 Compare prices across 3 ticket classes (2nd class, 2nd class calm, 1st class)
 - 🎯 Filter by direct trains only
 - ⏰ Time range filtering with adjustable sliders
-- 📊 Real-time scraping progress with Server-Sent Events (SSE)
+- 📊 Real-time progress with Server-Sent Events (SSE)
 - 🌓 Dark/light mode support
 - 📅 Easy date navigation (previous/next day)
 - 🚄 Operator information display
@@ -19,7 +19,7 @@ A Nuxt 4 application that scrapes train schedules and prices from SJ.se (Swedish
 
 - **Framework:** Nuxt 4 with Vue 3.5+
 - **UI Library:** [Nuxt UI](https://ui.nuxt.com/) v4 - Beautiful, accessible components built on TailwindCSS
-- **Scraping:** Puppeteer for browser automation
+- **Data fetching:** SJ public booking JSON API (`prod-api.adp.sj.se`) via `fetch` — no browser automation
 - **i18n:** @nuxtjs/i18n for internationalization
 - **Caching:** Nitro storage layer (filesystem for dev, Cloudflare KV for production)
 - **Icons:** Heroicons and Lucide via Iconify
@@ -84,7 +84,8 @@ The app will be available at https://localhost:3000 (note: HTTPS, not HTTP)
 │   │   └── scrape-stream.ts # SSE endpoint for real-time progress
 │   └── utils/
 │       ├── cache.ts         # Cache helper functions
-│       └── puppeteer.ts     # Puppeteer scraping logic
+│       ├── sjApi.ts         # SJ booking API client
+│       └── stations.ts      # Station name → UIC code lookup
 ├── i18n/
 │   └── locales/
 │       └── sv.json          # Swedish translations
@@ -99,7 +100,7 @@ The app will be available at https://localhost:3000 (note: HTTPS, not HTTP)
 ### User Flow
 
 1. **Search**: User selects origin, destination, and date
-2. **Scraping**: Puppeteer visits SJ.se and extracts all train data
+2. **Fetch**: The server calls SJ's booking API (search → departures → per-departure offers)
 3. **Progress**: Real-time updates via Server-Sent Events (SSE)
 4. **Display**: All trains shown in a comprehensive table with filtering options
 5. **Booking**: Direct links to SJ.se for selected trains
@@ -138,53 +139,25 @@ await storage.remove(key);
 
 See `server/utils/cache.ts` for implementation details.
 
-## Performance & Anti-Scraping
+## Performance & Data Access
 
 ### Current Performance
 
-- **Per departure:** ~3.5-4 seconds (with reliable DOM reloading)
-- **Individual caching:** Each departure cached for 1 hour
-- **Typical route:** 10-30 departures = 35-120 seconds total scrape time
-- **Cache hit:** < 10ms per departure
+- **Whole route:** ~2 seconds uncached (all departures, full pricing)
+- **Caching:** Each departure cached for 1 hour; route metadata for fast reloads
+- **Cache hit:** < 10ms
 
-### Anti-Scraping Considerations
+The app calls SJ's public booking API directly (the same API the sj.se frontend
+uses) — no headless browser. This is both far faster and not subject to the per-IP
+"8 departures" block that the earlier Puppeteer approach hit. See `HISTORY.md` for the
+full record of approaches tried and why the API approach won.
 
-**Important Context:** SJ.se is operated by SJ AB, a Swedish state-owned company (Statens Järnvägar). As a public service funded by taxpayers, they should not actively prevent reasonable data access for public benefit applications like this one.
+### Responsible access
 
-#### Technical Observations
-
-During development, we encountered several challenges that may indicate anti-scraping measures or technical limitations of their React/Vue-based SPA:
-
-1. **DOM Instability**: After navigation, DOM elements become stale or re-render with different structure
-   - **Solution**: Always reload pages with fresh `page.goto()` instead of `page.goBack()`
-   - Find elements by content (departure time) rather than stored indices
-
-2. **Timing Requirements**: Pages need specific wait patterns for reliability
-   - Must wait for `networkidle0` (not just `domcontentloaded`)
-   - Additional 500ms delay for React/Vue component hydration
-   - Wait for `[data-testid]` selectors to appear before interaction
-
-3. **Element Matching**: Can't rely on element positions after page reloads
-   - Cards must be matched by departure time string, not index
-   - UUID-based testids don't provide stable references
-
-### Best Practices Implemented
-
-1. **Respectful scraping**: 500ms delays between operations
-2. **Aggressive caching**: 1-hour TTL on individual departures reduces load
-3. **Fail-fast timeouts**: 10-second max instead of long waits
-4. **Human-like patterns**: Smooth scrolling, cookie acceptance, random delays
-
-### If Blocking Occurs
-
-If SJ.se implements IP-based rate limiting or blocking:
-
-1. **First**: Contact SJ to request official API access (they should provide this as a public service)
-2. **Reduce frequency**: Implement longer delays or less frequent scraping
-3. **Increase caching**: Extend TTL to reduce total requests
-4. **Last resort**: Residential proxies (but first exhaust diplomatic options)
-
-Remember: As a state-owned public service, SJ should embrace tools that help citizens access their service more efficiently.
+SJ.se is operated by SJ AB, a Swedish state-owned company. This app makes the same
+read-only requests the website's own frontend makes, at lower volume, with aggressive
+caching. If access ever breaks, the preferred path is to request official API access
+rather than aggressive workarounds.
 
 ## Development Commands
 
