@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Nuxt 4 application that scrapes train schedules and prices from SJ.se (Swedish Railways) using Puppeteer for browser automation. The application serves as a search interface that provides cached train data and booking links.
+This is a Nuxt 4 application that fetches train schedules and prices from SJ.se (Swedish Railways). The application serves as a search interface that provides cached train data and booking links.
 
-**Status**: Step 7 of PLAN.md is complete. The application now has a fully functional UI with search, results display, real-time progress tracking, and comprehensive filtering options.
+**Data source**: The app calls SJ's public booking JSON API (`prod-api.adp.sj.se`) directly — the same API the sj.se frontend uses. It does **not** use Puppeteer/browser automation anymore (see "Data Fetching" below and PERFORMANCE_TESTS.md for the history).
+
+**Status**: Step 7 of PLAN.md is complete. The application has a fully functional UI with search, results display, real-time progress tracking, and comprehensive filtering options.
 
 ## Development Commands
 
@@ -40,7 +42,7 @@ Chrome MCP Server is available for testing
 ### Core Technologies
 - **Framework:** Nuxt 4 with Vue 3.5+
 - **UI Library:** Nuxt UI v4 (built on TailwindCSS and Headless UI)
-- **Scraping:** Puppeteer (headless Chrome for client-side rendered content)
+- **Data Fetching:** SJ public booking JSON API (`prod-api.adp.sj.se`) via plain `fetch` — no browser automation
 - **i18n:** @nuxtjs/i18n for internationalization (currently Swedish)
 - **Icons:** @iconify-json/heroicons and @iconify-json/lucide
 - **Hosting Target:** Cloudflare Pages/Workers
@@ -58,11 +60,12 @@ Chrome MCP Server is available for testing
 │       └── cities.ts        # 50+ Swedish train station definitions
 ├── server/
 │   ├── api/
-│   │   ├── scrape.ts        # Main scraping endpoint with caching
+│   │   ├── scrape.ts        # Main endpoint with caching (orchestrates sjApi)
 │   │   └── scrape-stream.ts # SSE endpoint for real-time progress
 │   └── utils/
 │       ├── cache.ts         # Cache helper functions
-│       └── puppeteer.ts     # Puppeteer scraping implementation
+│       ├── sjApi.ts         # SJ booking API client (search → departures → offers)
+│       └── stations.ts      # Station name → UIC code lookup
 ├── i18n/
 │   ├── locales/
 │   │   └── sv.json          # Swedish translations
@@ -81,14 +84,15 @@ Chrome MCP Server is available for testing
    - Navigation to `/{date}/{from}/{to}`
    - Results page connects to `/api/scrape-stream` via SSE
 
-2. **Scraping with Real-time Progress:**
+2. **Fetching with Real-time Progress:**
    - Check cache first (1-hour TTL)
-   - If not cached, scrape SJ.se with Puppeteer
+   - If not cached, call the SJ booking API (see "Data Fetching Implementation")
    - Server-Sent Events (SSE) provide real-time updates:
-     - Status messages ("Opening website...", "Scrolling to load all trains...")
-     - Progress tracking (X/Y trains processed)
+     - Status messages
+     - Progress tracking (X/Y departures priced)
+     - Individual departures streamed as their offers resolve
      - Final results when complete
-   - Results cached after scraping
+   - Results cached after fetching
 
 3. **Results Display:**
    - Comprehensive table showing all departures
@@ -103,96 +107,45 @@ Format: `sj:{from}:{to}:{date}`
 Example: `sj:Stockholm Central:Malmö Central:2025-12-21`
 TTL: 3600 seconds (1 hour)
 
-## Scraping Implementation Details
+## Data Fetching Implementation
 
-### Target Site Challenges
-- **Client-side rendered:** Requires JavaScript execution (Puppeteer needed, not Cheerio)
-- **Infinite scroll:** Must scroll to bottom to load all departures before processing
-- **Session state:** Each departure must be clicked individually to reveal prices
-- **No direct URLs:** Options don't have unique identifiers in URL
+The app talks to SJ's public booking API directly (`server/utils/sjApi.ts`). This is the same Azure API Management backend (`prod-api.adp.sj.se`) the sj.se frontend uses. No browser, no login, no cookies.
 
-### Scraping Flow
+### API Flow (3 calls)
 
-**Two modes available:**
+1. **`POST /public/sales/booking/v3/search`**
+   Body: `{ origin, destination, departureDate, returnDate: "", passengers: [{ passengerCategory: { type: "ADULT" } }] }`
+   `origin`/`destination` are **UIC station codes** (e.g. Stockholm C `740000001`, Malmö C `740000003`).
+   → returns `{ departureSearchId, passengerListId }`.
 
-#### 1. Sequential Mode (Legacy - Limited to ~8 departures)
-1. Navigate to SJ.se search results page
-2. Scroll incrementally to bottom to trigger lazy loading of all departures
-3. Wait for all content to load
-4. Iterate through each departure option:
-   - Navigate to departure details (using direct URL reload, not browser back)
-   - Extract prices and availability for 3 tiers (Economy, Standard, First Class)
-   - Extract booking link
-   - Reload results page for next departure
-5. Browser restart after 8 departures (to reset session counter)
+2. **`GET /public/sales/booking/v3/departures/search/{departureSearchId}`**
+   → all departures (times, duration, `numberOfChanges`, legs with `serviceType`). No prices.
 
-**Limitation**: Hits IP-based rate limiting after ~8 total departures
+3. **`GET /public/sales/booking/v3/departures/{departureId}/offers?passengerListId={passengerListId}`** (one per departure, fetched with bounded concurrency)
+   → prices: `seatOffers.offers.{SECOND, SECOND_CALM, FIRST}.priceFrom.price` + `.available`, plus `bedOffers` for night trains and a convenience `priceFrom`.
 
-#### 2. Parallel Mode (Recommended - Same 8-departure limit but cleaner)
-1. Navigate to SJ.se search results page to get departure list
-2. Close initial browser
-3. For each departure (with 1s delay between):
-   - Launch fresh independent browser instance
-   - Navigate to results page
-   - Click specific departure card
-   - Extract prices
-   - Close browser
-4. No back navigation needed (simpler, more reliable)
+### Authentication
 
-**Limitation**: Same IP-based rate limiting after 8 departures
+A single static header: `Ocp-Apim-Subscription-Key`. This is a **public** value baked into SJ's frontend JS bundle (an Azure APIM client identifier, not a user credential). It is sent by every visitor's browser.
 
-**Enable with**: `useParallelScrapers=1` query parameter (e.g., `/api/scrape-stream?useParallelScrapers=1&...`)
+- Configured in `runtimeConfig.sj.subscriptionKey` (default committed; override via `SJ_SUBSCRIPTION_KEY` env var).
+- `sjApi.ts` **auto-extracts** a fresh key from sj.se if the configured one ever returns 401 (handles SJ rotating it in a new deploy): it crawls the JS bundle import graph, collects 32-hex key candidates, and validates each against a cheap search call.
+- Other required headers (all static): `x-client-name: sjse-booking-client`, `x-client-version`, `Accept-Language`, `Content-Type`, `Ocp-Apim-Trace`.
 
-### Anti-Scraping Resilience (IMPORTANT)
+### Station Codes
 
-**Context**: SJ.se is a state-owned public service. If scraping issues arise, the approach should be diplomatic first (requesting API access) rather than aggressive workarounds.
+The frontend passes station **names**; the server resolves them to UIC codes via `server/utils/stations.ts` (52 stations). `app/utils/cities.ts` also carries `uicStationCode` per city. Keep the two in sync when adding stations.
 
-**CURRENT STATUS (2026-01-28):**
-- ⚠️ **IP-based rate limiting confirmed**: SJ.se blocks after 8 successful departure detail page loads per IP address
-- 🔄 **Parallel scraper architecture implemented**: Each departure uses independent browser instance (bypasses session/cookie tracking)
-- ❌ **Limitation**: Cannot bypass IP tracking without proxy rotation or accepting 8-departure limit
-- 📝 **See PERFORMANCE_TESTS.md** for detailed history of all anti-scraping tests and findings
+### Why not Puppeteer?
 
-**Known Anti-Scraping Measures:**
-1. **IP-based rate limiting** - Blocks after 8 requests (confirmed 2026-01-28)
-2. **Counter-based blocking** - Previously blocked at departure #9 with sequential scraping (confirmed 2026-01-12)
-3. **DOM manipulation** - Page state changes after first departure in some tests
+The original implementation scraped the rendered page with a headless browser. SJ blocked it after exactly 8 departure-detail page loads per IP. Extensive testing (see PERFORMANCE_TESTS.md) showed this was an artifact of the **browser navigation/fingerprinting**, not the API: direct API calls fetch all departures (tested 20+/20+, 76 for Stockholm→Uppsala) with no limit, in ~2s vs 20–90s. Puppeteer was removed entirely (revertable via git history).
 
-**Critical Implementation Rules**:
+### Notes / Edge Cases
 
-1. **Never use browser back navigation** (`page.goBack()`)
-   - DOM becomes stale and unreliable after going back
-   - Always use `page.goto(url)` to reload the results page
-   - Ensures fresh DOM state for each departure click
-
-2. **Wait patterns are critical**:
-   ```typescript
-   // After navigating to results page
-   await page.goto(url, { waitUntil: 'networkidle0', timeout: 10000 });
-   await page.waitForSelector('[data-testid]', { timeout: 5000 });
-   await new Promise(resolve => setTimeout(resolve, 500)); // React/Vue hydration
-   ```
-
-3. **Find elements by content, not index**:
-   - Never store element indices and reuse them
-   - Always search for cards by matching departure time
-   - Example: Find card where first time match equals `card.departureTime`
-
-4. **Regional trains have different structure**:
-   - Long-distance: `SECOND-price`, `SECOND_CALM-price`, `FIRST-price` testids
-   - Regional trains: `totalPrice` testid only
-   - Always fallback to `totalPrice` if class-specific prices not found
-
-5. **Timeout strategy**:
-   - Use 10-second timeouts, not 15+ seconds
-   - Fail fast and log errors for debugging
-   - Don't let one stuck departure block the entire scrape
-
-6. **If encountering systematic failures**:
-   - Add debug logging to see what testids are available
-   - Take screenshots to inspect page state
-   - Check if DOM structure has changed
-   - Consider if SJ deployed anti-scraping updates
+- **Night trains** have `bedOffers` instead of seat offers; `sjApi.ts` surfaces the cheapest bed price in the second-class slot so a price still shows.
+- **Multi-leg journeys** (changes > 0): `operator` is the unique `serviceType` names joined with " + " (e.g. "SJ Nattåg + SJ InterCity").
+- Already-departed trains are filtered out (5-minute buffer) in `scrape.ts`.
+- High-frequency routes (e.g. Stockholm→Uppsala, ~76 departures) issue one offers call each at concurrency 5 — still a few seconds, but be mindful of load.
 
 ### Actual JSON Output Structure
 ```json
@@ -232,29 +185,22 @@ TTL: 3600 seconds (1 hour)
 ## Implementation Guidelines
 
 ### When Building API Routes
-- Use Puppeteer with human-like behavior (random delays, smooth scrolling)
-- Implement comprehensive error handling for:
-  - No trains available
-  - Sold out prices
-  - Page structure changes
-  - Timeouts (> 30 seconds)
-  - Scroll failures
-- Add bot detection mitigation strategies
+- Use the `sjApi.ts` client; handle non-2xx responses (it already retries once on 401 with a refreshed key)
+- Implement error handling for:
+  - No trains available (empty `travels[0].departures`)
+  - Sold out / unavailable classes (`available: false`, `price: null`)
+  - Individual offers failing (skip that departure, mark result `incomplete`)
 - Protect `/api/update-cache` with Authorization header token (environment variable)
 
 ### Booking Deep Links Strategy
-During scraping, investigate three approaches in order:
-1. Extract direct URL with departure identifier from DOM
-2. Reconstruct URL with query parameters
-3. Fallback to generic search page URL
-
-Goal: Provide "Book this train" button that deep links with specific departure pre-selected.
+`buildBookingUrl()` in `sjApi.ts` returns the ticket-selection page URL:
+`/en/search-journey/choose-ticket-type/{from}/{to}/{date}/outward-journey`.
+A future improvement could deep-link a specific departure using its `departureId`.
 
 ### Performance Considerations
-- Puppeteer uses ~500MB RAM per instance
+- API calls are lightweight (`fetch`), no browser process / RAM overhead
 - Expected low-medium traffic (< 10 concurrent users)
-- 20-30 second wait acceptable for uncached routes
-- Use single page context and navigate back between clicks (fastest approach)
+- Uncached routes resolve in ~2s; offers are fetched at concurrency 5 (`runtimeConfig.sj.offersConcurrency`)
 
 ## Configuration
 
@@ -271,16 +217,11 @@ Goal: Provide "Book this train" button that deep links with specific departure p
 - **Nitro Storage:**
   - Local: Filesystem (`.cache/` directory)
   - Production: Cloudflare KV binding
-- **Runtime Config:**
-  - Scraper timeouts (configurable in `runtimeConfig.scraper.timeouts`):
-    - `initialPageLoad`: 60000ms - Initial navigation to search results
-    - `selectorWait`: 20000ms - Wait for departure cards to load
-    - `navigationClick`: 30000ms - Wait for navigation after clicking departure
-    - `navigateBack`: 30000ms - Wait for navigation back to results
-    - `selectorAfterBack`: 10000ms - Wait for departure cards after going back
-
-### Scraper Timeouts
-All Puppeteer timeouts are configured in `nuxt.config.ts` under `runtimeConfig.scraper.timeouts`. You can adjust these values if experiencing timeout issues with the SJ.se website. All values are in milliseconds.
+- **Runtime Config (`runtimeConfig.sj`):**
+    - `apiHost`: `https://prod-api.adp.sj.se`
+    - `subscriptionKey`: public APIM key (override via `SJ_SUBSCRIPTION_KEY`); auto-refreshed on 401
+    - `clientName` / `clientVersion`: static request headers (override version via `SJ_CLIENT_VERSION`)
+    - `offersConcurrency`: parallel offer requests (default 5)
 
 ### Cities
 - **Total:** 50+ Swedish train stations
@@ -328,7 +269,7 @@ The project uses [Nuxt UI v4](https://ui.nuxt.com/) for all UI components. Alway
 ## Security Notes
 - Environment variables required for `/api/update-cache` authentication token (not yet implemented)
 - Rate limiting to protect target site (not yet implemented)
-- Consider user agent rotation if bot detection issues arise
+- `SJ_SUBSCRIPTION_KEY` can override the committed public APIM key if desired
 
 ### Coding Style Preferences
 - **Modern JavaScript**: Prefer modern JavaScript features and methods when they improve readability or expressiveness (e.g., use `array.at(-1)` instead of `array[array.length - 1]`, optional chaining `?.`, nullish coalescing `??`, etc.)
@@ -347,7 +288,7 @@ The project uses [Nuxt UI v4](https://ui.nuxt.com/) for all UI components. Alway
 - [x] Search page with city selection and date picker
 - [x] Results page with comprehensive table display
 - [x] Real-time scraping progress via Server-Sent Events (SSE)
-- [x] Puppeteer scraping implementation
+- [x] SJ booking API client (`sjApi.ts`) — replaced Puppeteer scraping
 - [x] Cache system with helper functions
 - [x] Dark/light mode toggle
 - [x] Direct trains filter

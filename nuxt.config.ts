@@ -7,20 +7,17 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // Server-side only config
-    scraper: {
-      // Timeouts in milliseconds
-      timeouts: {
-        initialPageLoad: 60000, // Initial navigation to search results
-        selectorWait: 20000, // Wait for departure cards to load
-        navigationClick: 90000, // Wait for navigation after clicking departure (increased to test if it's rate limiting)
-        navigateBack: 60000, // Wait for navigation back to results
-        selectorAfterBack: 20000, // Wait for departure cards after going back
-      },
-      // Anti-scraping mitigation
-      delayBetweenDepartures: 2000, // Add 2s delay between departures to avoid rate limiting
-      // Development flags
-      stopOnFirstError: true, // Stop parsing at first error (local only)
+    // Server-side only config for the SJ booking API client (server/utils/sjApi.ts)
+    sj: {
+      apiHost: 'https://prod-api.adp.sj.se',
+      // Public subscription key embedded in SJ's own frontend bundle (Azure APIM
+      // client identifier, not a user credential). Overridable via env; the client
+      // also auto-extracts a fresh key from sj.se if this one ever returns 401.
+      subscriptionKey: process.env.SJ_SUBSCRIPTION_KEY ?? 'd6625619def348d38be070027fd24ff6',
+      clientName: 'sjse-booking-client',
+      clientVersion: process.env.SJ_CLIENT_VERSION ?? '20260609.0039-prod',
+      // Max concurrent offer requests when fetching prices per departure
+      offersConcurrency: 5,
     },
     public: {
       environment: process.env.NUXT_PUBLIC_ENVIRONMENT ?? 'local',

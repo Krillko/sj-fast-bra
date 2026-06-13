@@ -498,6 +498,40 @@ Each test should include:
 
 ---
 
+## 2026-06-13: BREAKTHROUGH — Direct SJ API, Puppeteer removed entirely
+
+**Hypothesis**: The "8 departures per IP" block is an artifact of the headless-browser navigation/fingerprinting, not the underlying API. SJ's site is a thin client over a public JSON API — call it directly instead of scraping the DOM.
+
+**Investigation** (via Chrome DevTools network capture on sj.se):
+- The site is backed by Azure API Management at `prod-api.adp.sj.se`.
+- Three calls produce everything we need (no browser, no login, no cookies):
+  1. `POST /public/sales/booking/v3/search` → `{ departureSearchId, passengerListId }`
+  2. `GET /public/sales/booking/v3/departures/search/{departureSearchId}` → all departures
+  3. `GET /public/sales/booking/v3/departures/{departureId}/offers?passengerListId=…` → prices
+- Auth is one static header: `Ocp-Apim-Subscription-Key` (`d6625619def348d38be070027fd24ff6`), a public value in the frontend bundle. `credentials: omit`.
+- Origin/destination are UIC station codes (Stockholm C `740000001`, Malmö C `740000003`). Extracted codes for all 52 cities from SJ's station picker.
+
+**The key test — does the 8-limit apply to direct API calls?**
+- Fetched offers for **all 20** departures of Stockholm→Malmö directly: **20/20 returned `200 OK`**. Departures 9–20 worked fine.
+- **Conclusion**: The 8-limit was 100% a browser-navigation artifact. The API has no such limit.
+
+**Measurements** (verified via Node and through the Nuxt dev server):
+- Stockholm→Malmö: 19–24 departures, full pricing, in **~1.7–2.5s** total (was 20–90s, capped at 8).
+- Stockholm→Uppsala: **76 departures** all priced (previously impossible past 8).
+- Offers fetched at concurrency 5.
+
+**Result**: ✅ **KEEP — this is the new architecture.** Puppeteer removed entirely.
+
+**Implementation**:
+- `server/utils/sjApi.ts` — API client (search/departures/offers), maps to the existing result shape; auto-extracts a fresh subscription key from the JS bundle on 401 (key-rotation resilience).
+- `server/utils/stations.ts` — station name → UIC code (52 stations); `app/utils/cities.ts` gained `uicStationCode`.
+- `server/api/scrape.ts` — rewritten to orchestrate `sjApi` (same signature, result shape, granular caching, SSE progress callbacks).
+- Removed `server/utils/puppeteer.ts`, the `test-*.mjs` scripts, `explore-sj.mjs`, and the `puppeteer` dependency. Old `runtimeConfig.scraper.timeouts` replaced by `runtimeConfig.sj`.
+
+**Why this works where browser scraping failed**: SJ's anti-scraping targeted the *rendered booking flow* (DOM clicks, page reloads, browser fingerprint) — not the public API its own frontend calls. We now make the exact same requests the website makes, at lower volume, with caching.
+
+---
+
 ## Future Tests
 
 Document all future performance experiments below, even if they fail.
