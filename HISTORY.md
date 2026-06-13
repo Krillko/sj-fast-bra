@@ -128,6 +128,42 @@ purely a browser-navigation artifact. It does not exist for direct API calls.
 
 ---
 
+## Soak test — 1 hour at small-site production load (2026-06-13)
+
+**Goal:** Confirm the API approach isn't quietly rate-limited/blocked under sustained,
+realistic traffic (the thing that killed every browser approach).
+
+**Setup:** A load generator (`/tmp/loadtest.mjs`) hit the real `/api/scrape` endpoint
+(caching on, as in production) for 60 minutes: ~4 visitors/min, top-4-station-weighted
+routes, dates mostly within 12 days, ~30% of visitors refining (+1 day). Cache cleared
+first for a cold start.
+
+**Result:** ✅ **No anti-scraping. 309/310 requests `200 OK`.**
+
+| Metric | Value |
+| --- | --- |
+| Total requests (incl. refinements) | 310 |
+| Successful (200) | 309 |
+| Departures priced in total | 12,356 |
+| 401 / 403 / 429 (block signals) | **0** |
+| Empty / incomplete results | **0 / 0** |
+| Key auto-refreshes triggered | 0 |
+| Avg / max latency | 3.2s / 15s |
+| Failures | 1 (transient `fetch failed`, recovered next request) |
+
+No escalation, no clustering, no "fails after N then stays failed" pattern — the
+opposite of the old per-IP block. Big routes (up to 77 departures) succeeded fully.
+
+**Bug the test surfaced (fixed):** the one failure was a transient network error on a
+*single* offers call, which threw and 500'd the *entire* route. `getOffers` now catches
+thrown network errors and returns `null`, so a flaky single call just drops that
+departure and marks the result `incomplete` instead of sinking the whole search.
+
+**Conclusion:** Safe to rely on at small-site volume. With production caching, real load
+on SJ is lower than this test (which cold-started and used high date entropy).
+
+---
+
 ## Current architecture (the details)
 
 **Client:** `server/utils/sjApi.ts`. **Station codes:** `server/utils/stations.ts`

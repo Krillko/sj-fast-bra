@@ -164,15 +164,19 @@ export async function getOffers(
   firstClass: PriceInfo;
 } | null> {
   const url = `${bookingBase(cfg)}/departures/${departureId}/offers?passengerListId=${passengerListId}`;
-  const resp = await apiFetch(url, { method: 'GET' }, cfg);
-
-  if (!resp.ok) {
-    console.warn(`  ✗ offers ${departureId} → ${resp.status}`);
+  try {
+    const resp = await apiFetch(url, { method: 'GET' }, cfg);
+    if (!resp.ok) {
+      console.warn(`  ✗ offers ${departureId} → ${resp.status}`);
+      return null;
+    }
+    return mapOffers(await resp.json());
+  } catch (e) {
+    // A transient network error (e.g. "fetch failed") on one departure must not
+    // sink the whole route — treat it as a failed departure (caller marks incomplete).
+    console.warn(`  ✗ offers ${departureId} → ${e instanceof Error ? e.message : e}`);
     return null;
   }
-
-  const json = await resp.json();
-  return mapOffers(json);
 }
 
 // ---- Mapping helpers ----
