@@ -164,6 +164,38 @@ on SJ is lower than this test (which cold-started and used high date entropy).
 
 ---
 
+## Subscription-key self-healing — hardened for Cloudflare (2026-06-13)
+
+**Context:** The `Ocp-Apim-Subscription-Key` is a public, long-lived APIM key baked into
+SJ's frontend bundle — not a session token, so unlikely to rotate often, but it *can*
+change on a redeploy/security refresh. `sjApi.ts` already had a fallback that crawls the
+bundle for a fresh key on a 401, but it was written for Node and unsafe on Cloudflare:
+
+- It crawled up to ~300 JS files → ~300 `fetch`es in one request, blowing the **free-tier
+  50-external-subrequest-per-request limit**, so a real rotation would *not* self-heal in
+  production.
+- It cached the found key only in per-isolate memory (Workers isolates are ephemeral →
+  re-discovered constantly).
+
+**Hardening:**
+- **Lean crawl:** follow only SJ's config/api chunks (`constants|env|hooks|api|booking|
+  sales|container|common`) and stop at the first valid candidate. Bounded to 20 chunk
+  fetches; in practice it finds the key after **7** (~9 external subrequests for a full
+  recovery — well under 50).
+- **KV-persisted key** (`sj:apikey`): the discovered key is written to KV so the crawl
+  cost is paid once and shared across all requests/isolates; later 401s just read it.
+- The committed default key is always tried first (zero overhead on the normal path), an
+  in-isolate guard collapses concurrent 401s into one crawl, and the just-failed key is
+  never re-returned (avoids sticking on a stale key).
+
+**Verified:** simulated a rotation against the live site (fake failed key) → found and
+validated the real key after 7 fetches. Redeployed; production unaffected.
+
+**Result:** ✅ If SJ rotates the key, the next request discovers the new one, caches it in
+KV, and self-heals — within the free-tier budget, no manual intervention.
+
+---
+
 ## Current architecture (the details)
 
 **Client:** `server/utils/sjApi.ts`. **Station codes:** `server/utils/stations.ts`

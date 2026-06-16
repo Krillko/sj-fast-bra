@@ -85,18 +85,21 @@ function bookingBase(cfg: SjRuntime): string {
 }
 
 /**
- * Fetch helper that retries once with a freshly extracted subscription key if
- * the API responds 401 (handles SJ rotating the key in a new frontend deploy).
+ * Fetch helper that retries once with a refreshed subscription key if the API
+ * responds 401 (handles SJ rotating the key in a new frontend deploy). The
+ * refreshed key is persisted in KV so the discovery cost is paid once, not per
+ * request/isolate.
  */
 async function apiFetch(url: string, init: RequestInit, cfg: SjRuntime): Promise<Response> {
   let resp = await fetch(url, { ...init, headers: { ...buildHeaders(cfg), ...(init.headers || {}) } });
 
   if (resp.status === 401) {
-    console.warn('⚠️  SJ API returned 401 — attempting to refresh subscription key from sj.se');
-    const fresh = await extractWorkingSubscriptionKey(cfg);
-    if (fresh) {
+    const usedKey = resolvedKey ?? cfg.subscriptionKey;
+    console.warn('⚠️  SJ API returned 401 — refreshing subscription key');
+    const fresh = await refreshSubscriptionKey(usedKey, cfg);
+    if (fresh && fresh !== usedKey) {
       resolvedKey = fresh;
-      console.log('✓ Refreshed SJ subscription key');
+      console.log('✓ Using refreshed SJ subscription key');
       resp = await fetch(url, { ...init, headers: { ...buildHeaders(cfg), ...(init.headers || {}) } });
     }
   }
@@ -264,61 +267,109 @@ export function buildBookingUrl(from: string, to: string, date: string): string 
 
 // ---- Subscription key auto-extraction (fallback for key rotation) ----
 
+const KEY_CACHE_KEY = 'sj:apikey';
+// In-isolate guard so concurrent 401s trigger a single crawl, not one each.
+let refreshInFlight: Promise<string | null> | null = null;
+
 /**
- * Crawl SJ's frontend JS bundle and return a subscription key that
- * authenticates against the booking API. Used only when the configured key
- * returns 401. Returns null if no working key is found.
+ * Produce a working subscription key after a 401, cheaply where possible:
+ *   1. Another isolate may already have discovered + cached the new key in KV.
+ *   2. Otherwise crawl SJ's bundle (bounded) for it and persist the result.
+ * `failedKey` is the key that just 401'd — we never return it.
  */
-async function extractWorkingSubscriptionKey(cfg: SjRuntime): Promise<string | null> {
+function refreshSubscriptionKey(failedKey: string, cfg: SjRuntime): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async() => {
+    try {
+      const storage = useStorage('cache');
+
+      // 1. KV may already hold a fresh key written by another request/isolate.
+      const cached = await storage.getItem<{ key: string; ts: number }>(KEY_CACHE_KEY).catch(() => null);
+      if (cached?.key && cached.key !== failedKey) {
+        return cached.key;
+      }
+
+      // 2. Discover from the live bundle, then persist for everyone else.
+      const found = await crawlForWorkingKey(cfg, failedKey);
+      if (found) {
+        await storage.setItem(KEY_CACHE_KEY, { key: found, ts: Date.now() }).catch(() => {});
+        return found;
+      }
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+/**
+ * Bounded crawl of SJ's frontend bundle to find a subscription key that
+ * authenticates against the booking API. Stays well under Cloudflare's
+ * 50-external-subrequest-per-request free-tier limit: it follows only
+ * relevant chunks (config/api bundles) and stops as soon as it has a fresh,
+ * validated candidate. Returns null if none found within the budget.
+ */
+async function crawlForWorkingKey(cfg: SjRuntime, failedKey: string): Promise<string | null> {
+  const ORIGIN = 'https://www.sj.se';
+  const MAX_FETCH = 20; // hard cap on chunk fetches (subrequest budget)
+  // Only follow chunks likely to carry the key or lead to it (SJ's config/api/app bundles).
+  const RELEVANT = /constants|env|hooks|api|booking|sales|container|common/i;
+  const ua = { 'User-Agent': 'Mozilla/5.0' };
+  const get = (u: string) => fetch(u, { headers: ua }).then((r) => (r.ok ? r.text() : '')).catch(() => '');
+
+  const scan = (js: string, into: Set<string>) => {
+    for (const m of js.matchAll(/Ocp-Apim-Subscription-Key["']?\s*[:,]\s*[`"']([a-f0-9]{32})[`"']/gi)) into.add(m[1]);
+    for (const m of js.matchAll(/(?:API_SUBSCRIPTION_KEY|subscriptionKey)\s*[:=]\s*[`"']([a-f0-9]{32})[`"']/gi)) into.add(m[1]);
+  };
+  const depsOf = (js: string, from: string) => [...js.matchAll(/["'](\.{0,2}\/[^"']*\.js)["']/g)]
+    .map((m) => { try { return new URL(m[1], from).href; } catch { return null; } })
+    .filter((u): u is string => !!u);
+
   try {
-    const ua = { 'User-Agent': 'Mozilla/5.0' };
-    const html = await fetch('https://www.sj.se/en/search-journey', { headers: ua }).then((r) => r.text());
+    const html = await get(`${ORIGIN}/en/search-journey`);
     const entry = html.match(/src="([^"]*main[^"]*\.js)"/)?.[1];
     if (!entry) return null;
 
     const seen = new Set<string>();
-    const queue = [new URL(entry, 'https://www.sj.se').href];
     const candidates = new Set<string>();
-    let checked = 0;
+    const queue: string[] = [new URL(entry, ORIGIN).href];
+    let fetched = 0;
 
-    while (queue.length && checked < 300) {
-      const url = queue.shift()!;
+    while (queue.length && fetched < MAX_FETCH) {
+      // Prefer relevant chunks; the entry (main.js) is processed first regardless.
+      let idx = queue.findIndex((u) => RELEVANT.test(u));
+      if (idx < 0) idx = 0;
+      const url = queue.splice(idx, 1)[0];
       if (seen.has(url)) continue;
       seen.add(url);
-      const js = await fetch(url, { headers: ua }).then((r) => (r.ok ? r.text() : '')).catch(() => '');
-      checked++;
 
-      // Keys are template-literal 32-char hex strings near the header name or in env defs.
-      for (const m of js.matchAll(/Ocp-Apim-Subscription-Key["']?\s*[:,]\s*[`"']([a-f0-9]{32})[`"']/gi)) {
-        candidates.add(m[1]);
-      }
-      for (const m of js.matchAll(/API_SUBSCRIPTION_KEY\s*[:=]\s*[`"']([a-f0-9]{32})[`"']/gi)) {
-        candidates.add(m[1]);
-      }
+      const js = await get(url);
+      fetched++;
+      scan(js, candidates);
+      // Stop crawling as soon as we have a candidate that isn't the known-bad key.
+      if ([...candidates].some((c) => c !== failedKey)) break;
 
-      // Follow relative .js imports.
-      for (const m of js.matchAll(/["'](\.{0,2}\/[^"']*\.js)["']/g)) {
-        try {
-          const dep = new URL(m[1], url).href;
-          if (!seen.has(dep)) queue.push(dep);
-        } catch { /* ignore malformed */ }
+      for (const dep of depsOf(js, url)) {
+        if (!seen.has(dep) && RELEVANT.test(dep)) queue.push(dep);
       }
     }
 
-    // Validate candidates against a cheap search call; return the first that works.
-    for (const key of candidates) {
+    // Validate fresh candidates (never the failed key) against a cheap search call.
+    const fresh = [...candidates].filter((c) => c !== failedKey).slice(0, 3);
+    for (const key of fresh) {
       const ok = await fetch(`${bookingBase(cfg)}/search`, {
         method: 'POST',
         headers: { ...buildHeaders(cfg), 'Ocp-Apim-Subscription-Key': key },
         body: JSON.stringify({
-          origin: '740000001', destination: '740000003', departureDate: '2099-01-01',
+          origin: '740000001', destination: '740000003', departureDate: '2099-12-31',
           returnDate: '', passengers: [{ passengerCategory: { type: 'ADULT' } }],
         }),
       }).then((r) => r.status !== 401).catch(() => false);
       if (ok) return key;
     }
   } catch (e) {
-    console.error('Subscription key extraction failed:', e instanceof Error ? e.message : e);
+    console.error('Key extraction failed:', e instanceof Error ? e.message : e);
   }
   return null;
 }
