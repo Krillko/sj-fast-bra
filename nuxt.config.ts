@@ -34,6 +34,11 @@ export default defineNuxtConfig({
 
   i18n: {
     defaultLocale: 'sv',
+    strategy: 'no_prefix',
+    // Always start in Swedish; the user opts into English via the switcher
+    // (persisted in a cookie). Auto-detecting the browser language would
+    // override the default and cause a locale flash on first load.
+    detectBrowserLanguage: false,
     langDir: 'locales',
     locales: [
       {
@@ -41,6 +46,12 @@ export default defineNuxtConfig({
         language: 'sv-SE',
         name: 'Svenska',
         file: 'sv.json',
+      },
+      {
+        code: 'en',
+        language: 'en-US',
+        name: 'English',
+        file: 'en.json',
       },
     ],
   },

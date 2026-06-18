@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { TICKERS, computeTickerAmount } from '~/utils/tickers';
 
-const now = ref(Date.now());
+const { t } = useI18n();
+
+// Seed from a server-shared timestamp so the SSR render and the first client
+// render compute the same amount (no hydration mismatch). The interval only
+// starts ticking after mount, i.e. after hydration has completed.
+const now = useState('tickerNow', () => Date.now());
 let timer: ReturnType<typeof setInterval> | undefined;
 
 onMounted(() => {
+  now.value = Date.now();
   timer = setInterval(() => {
     now.value = Date.now();
   }, 1000);
@@ -19,8 +25,8 @@ const formatter = new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 });
 
 const tickers = computed(() => TICKERS.map((ticker) => ({
   id: ticker.id,
-  prefix: ticker.prefix,
-  suffix: ticker.suffix,
+  prefix: t(ticker.prefixKey),
+  suffix: ticker.suffixKey ? t(ticker.suffixKey) : undefined,
   amount: formatter.format(Math.round(computeTickerAmount(ticker, now.value))),
 })));
 </script>
@@ -29,7 +35,7 @@ const tickers = computed(() => TICKERS.map((ticker) => ({
   <UCard>
     <template #header>
       <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-        Visste du att...
+        {{ t('tickers.title') }}
       </h3>
     </template>
 

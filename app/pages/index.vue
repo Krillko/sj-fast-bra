@@ -8,9 +8,9 @@ const colorMode = useColorMode();
 
 // Set page title
 useHead({
-  title: 'SJ Tågsök - Hitta snabba tågförbindelser i Sverige',
+  title: () => t('meta.title'),
   meta: [
-    { name: 'description', content: 'Sök och jämför tågpriser från SJ. Hitta snabba direkttåg mellan svenska städer.' },
+    { name: 'description', content: () => t('meta.description') },
   ],
 });
 
@@ -103,14 +103,17 @@ alt="Sena Jämt">
             </div>
           </div>
 
-          <!-- Theme toggle -->
-          <UButton
-            :icon="colorMode.value === 'dark' ? 'i-heroicons-sun' : 'i-heroicons-moon'"
-            color="gray"
-            variant="ghost"
-            aria-label="Toggle theme"
-            @click="toggleTheme"
-          />
+          <!-- Language + theme toggles -->
+          <div class="flex items-center gap-1">
+            <LanguageSwitcher />
+            <UButton
+              :icon="colorMode.value === 'dark' ? 'i-heroicons-sun' : 'i-heroicons-moon'"
+              color="gray"
+              variant="ghost"
+              aria-label="Toggle theme"
+              @click="toggleTheme"
+            />
+          </div>
         </div>
       </div>
     </header>
@@ -200,20 +203,15 @@ alt="Sena Jämt">
           <UCard>
             <template #header>
               <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-                Lorem Ipsum
+                {{ t('about.title') }}
               </h3>
             </template>
 
             <div class="space-y-4 text-sm text-gray-600 dark:text-gray-400">
-              <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-              </p>
-              <p>
-                Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-              </p>
-              <p>
-                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-              </p>
+              <p>{{ t('about.p1') }}</p>
+              <p>{{ t('about.p2') }}</p>
+              <p>{{ t('about.p3') }}</p>
+              <p>{{ t('about.p4') }}</p>
             </div>
           </UCard>
         </div>

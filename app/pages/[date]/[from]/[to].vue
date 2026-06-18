@@ -12,13 +12,16 @@ class="w-full dark:invert"
 alt="Sena Jämt">
               </div>
             </NuxtLink>
-            <UButton
-              :icon="colorMode.value === 'dark' ? 'i-heroicons-sun' : 'i-heroicons-moon'"
-              color="gray"
-              variant="ghost"
-              aria-label="Toggle theme"
-              @click="toggleTheme"
-            />
+            <div class="flex items-center gap-1">
+              <LanguageSwitcher />
+              <UButton
+                :icon="colorMode.value === 'dark' ? 'i-heroicons-sun' : 'i-heroicons-moon'"
+                color="gray"
+                variant="ghost"
+                aria-label="Toggle theme"
+                @click="toggleTheme"
+              />
+            </div>
           </div>
 
           <!-- Compact search form -->
@@ -60,7 +63,7 @@ alt="Sena Jämt">
               :disabled="!canSearch"
               @click="handleNewSearch"
             >
-              Sök
+              {{ t('search.go') }}
             </UButton>
           </div>
         </div>
@@ -72,13 +75,13 @@ alt="Sena Jämt">
       <div v-if="isDateInPast" class="flex flex-col items-center justify-center py-20">
         <UIcon name="i-heroicons-calendar-days" class="w-16 h-16 text-red-500 mb-4" />
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Datum i det förflutna
+          {{ t('results.dateInPast') }}
         </h2>
         <p class="text-gray-600 dark:text-gray-400 mb-4">
-          Det går inte att söka efter tåg för datum som redan har passerat.
+          {{ t('results.dateInPastMessage') }}
         </p>
         <UButton to="/">
-          Tillbaka till sökning
+          {{ t('results.backToSearch') }}
         </UButton>
       </div>
 
@@ -342,7 +345,7 @@ alt="Sena Jämt">
             <div v-if="data.incomplete" class="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
               <p class="text-sm text-red-800 dark:text-red-200">
                 <UIcon name="i-heroicons-exclamation-triangle" class="inline-block mr-1" />
-                <strong>Resultatet är ofullständigt.</strong> {{ data.failedCount }} avgång{{ data.failedCount === 1 ? '' : 'ar' }} kunde inte hämtas på grund av timeout eller anslutningsproblem. Prova att ladda om sidan för att försöka igen.
+                <strong>{{ t('results.incompleteLead') }}</strong> {{ t(data.failedCount === 1 ? 'results.incompleteSingular' : 'results.incompletePlural', { count: data.failedCount }) }}
               </p>
             </div>
 
@@ -473,7 +476,7 @@ alt="Sena Jämt">
             to="/"
             variant="ghost"
             icon="i-heroicons-arrow-left">
-            Tillbaka till sökning
+            {{ t('results.backToSearch') }}
           </UButton>
         </div>
       </div>

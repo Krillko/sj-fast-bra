@@ -2,6 +2,17 @@
   "app": {
     "title": "SJ Tågsök"
   },
+  "meta": {
+    "title": "SJ Tågsök - Hitta snabba tågförbindelser i Sverige",
+    "description": "Sök och jämför tågpriser från SJ. Hitta snabba direkttåg mellan svenska städer."
+  },
+  "about": {
+    "title": "Varför vi gör det här",
+    "p1": "SJ AB är ett statligt ägt bolag som tillhandahåller en samhällsviktig tjänst. Enligt EU:s Öppna data-direktiv (2019/1024) — implementerat i Sverige som lag 2022:818 — ska just den här typen av rörlighets- och transportdata från offentliga aktörer vara fritt tillgänglig för allmänheten.",
+    "p2": "Vi kan idag inte juridiskt kräva att SJ öppnar sitt API. Men vi är övertygade om att vi uppfyller direktivets intention: att medborgare ska kunna ta del av och bygga vidare på data som producerats med skattemedel.",
+    "p3": "Det vi gör är enkelt: vi visar samma information som SJ:s egen webbplats, snabbare och utan onödiga klick. Vi tjänar inga pengar. Bokning sker alltid direkt hos SJ.",
+    "p4": "Med Justin Roczniak bevingade ord: \"Cars bad — trains good.\" Vi kämpar på tågets sida. SJ:s webbplats gör det inte. Historien har alltid belönat dem som gjort det enkelt att välja rätt — och vi har redan vunnit varje gång någon sluppit klicka sig igenom fyra sidor för att hitta ett tåg."
+  },
   "search": {
     "from": "Från",
     "to": "Till",
@@ -45,7 +56,13 @@
     "scrapedAt": "Hämtad",
     "statsSaved": "Vi sparade dig att besöka {pages} sidor",
     "earliestDeparture": "Tidigast avgång",
-    "latestDeparture": "Senast avgång"
+    "latestDeparture": "Senast avgång",
+    "backToSearch": "Tillbaka till sökning",
+    "dateInPast": "Datum i det förflutna",
+    "dateInPastMessage": "Det går inte att söka efter tåg för datum som redan har passerat.",
+    "incompleteLead": "Resultatet är ofullständigt.",
+    "incompleteSingular": "{count} avgång kunde inte hämtas på grund av timeout eller anslutningsproblem. Prova att ladda om sidan för att försöka igen.",
+    "incompletePlural": "{count} avgångar kunde inte hämtas på grund av timeout eller anslutningsproblem. Prova att ladda om sidan för att försöka igen."
   },
   "split": {
     "action": "Försök dela",
@@ -66,6 +83,16 @@
     "checked": "Kontrollerade {count} stationer",
     "error": "Något gick fel vid delningssökningen.",
     "close": "Stäng"
+  },
+  "tickers": {
+    "title": "Visste du att...",
+    "sjCeo": {
+      "prefix": "Hittills denna månad har SJ:s vd Jonas Abrahamsson tjänat"
+    },
+    "bromma": {
+      "prefix": "Hittills i år har Swedavia (ett statligt bolag – alltså dina skattepengar) förlorat",
+      "suffix": "på att driva Bromma flygplats"
+    }
   },
   "cities": {
     "stockholm": "Stockholm",

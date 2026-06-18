@@ -14,10 +14,10 @@ export interface TickerDef {
   period: TickerPeriod;
   /** Total amount (SEK) earned/lost over one full period. */
   amountPerPeriod: number;
-  /** Text shown before the counting amount. */
-  prefix: string;
-  /** Text shown after the counting amount (after the " kr" unit). */
-  suffix?: string;
+  /** i18n key for the text shown before the counting amount. */
+  prefixKey: string;
+  /** i18n key for the text shown after the counting amount (after the " kr" unit). */
+  suffixKey?: string;
 }
 
 export const TICKERS: TickerDef[] = [
@@ -25,14 +25,14 @@ export const TICKERS: TickerDef[] = [
     id: 'sj-ceo',
     period: 'month',
     amountPerPeriod: 519_000,
-    prefix: 'Hittills denna månad har SJ:s vd Jonas Abrahamsson tjänat',
+    prefixKey: 'tickers.sjCeo.prefix',
   },
   {
     id: 'bromma',
     period: 'year',
     amountPerPeriod: 100_000_000,
-    prefix: 'Hittills i år har Swedavia (ett statligt bolag – alltså dina skattepengar) förlorat',
-    suffix: 'på att driva Bromma flygplats',
+    prefixKey: 'tickers.bromma.prefix',
+    suffixKey: 'tickers.bromma.suffix',
   },
 ];
 
