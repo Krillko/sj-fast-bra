@@ -8,10 +8,10 @@
   },
   "about": {
     "title": "Why we do this",
-    "p1": "SJ AB is a state-owned company providing an essential public service. Under the EU Open Data Directive (2019/1024) — implemented in Sweden as law 2022:818 — exactly this kind of mobility and transport data from public bodies should be freely available to the public.",
+    "p1": "SJ AB is a state-owned company providing an essential public service. Under the EU Open Data Directive (2019/1024), implemented in Sweden as law 2022:818, exactly this kind of mobility and transport data from public bodies should be freely available to the public.",
     "p2": "We cannot legally compel SJ to open its API today. But we are convinced that we fulfil the directive's intent: that citizens should be able to access and build upon data produced with taxpayer money.",
     "p3": "What we do is simple: we show the same information as SJ's own website, faster and without unnecessary clicks. We make no money. Booking always happens directly with SJ.",
-    "p4": "In Justin Roczniak's immortal words: \"Cars bad — trains good.\" We fight on the side of the train. SJ's website does not. History has always rewarded those who made it easy to choose right — and we have already won every time someone was spared clicking through four pages to find a train."
+    "p4": "In Justin Roczniak's immortal words: \"Cars bad, trains good.\" We fight on the side of the train. SJ's website does not. History has always rewarded those who made it easy to choose right; we have already won every time someone was spared clicking through four pages to find a train."
   },
   "search": {
     "from": "From",
@@ -78,7 +78,7 @@
     "leg": "{from} → {to}",
     "total": "Total",
     "saving": "You save {amount} SEK",
-    "note": "Same train the whole way – but you may need to change seats in {station} (separate seat reservations).",
+    "note": "Same train the whole way; you may, however, need to change seats in {station} (separate seat reservations).",
     "bookLeg": "Book",
     "checked": "Checked {count} stations",
     "error": "Something went wrong with the split search.",
@@ -90,7 +90,7 @@
       "prefix": "So far this month, SJ's CEO Jonas Abrahamsson has earned"
     },
     "bromma": {
-      "prefix": "So far this year, Swedavia (a state-owned company – i.e. your tax money) has lost",
+      "prefix": "So far this year, Swedavia (a state-owned company, i.e. your tax money) has lost",
       "suffix": "operating Bromma Airport"
     }
   },

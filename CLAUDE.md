@@ -271,6 +271,9 @@ The project uses [Nuxt UI v4](https://ui.nuxt.com/) for all UI components. Alway
 - Rate limiting to protect target site (not yet implemented)
 - `SJ_SUBSCRIPTION_KEY` can override the committed public APIM key if desired
 
+### Writing / Copy Style
+- **No em dashes (and no en dashes used as breaks)**: Never use `—` or `–` in translations, copy, UI text, or any user-facing content. Use semicolons (preferred), commas, parentheses, or separate sentences instead. The user explicitly dislikes dashes and likes semicolons.
+
 ### Coding Style Preferences
 - **Modern JavaScript**: Prefer modern JavaScript features and methods when they improve readability or expressiveness (e.g., use `array.at(-1)` instead of `array[array.length - 1]`, optional chaining `?.`, nullish coalescing `??`, etc.)
 - **Array methods over loops**: Prefer functional array methods (`.map()`, `.filter()`, `.reduce()`, `.forEach()`, `.find()`, `.some()`, `.every()`, etc.) over traditional `for` loops when working with arrays

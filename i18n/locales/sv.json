@@ -8,10 +8,10 @@
   },
   "about": {
     "title": "Varför vi gör det här",
-    "p1": "SJ AB är ett statligt ägt bolag som tillhandahåller en samhällsviktig tjänst. Enligt EU:s Öppna data-direktiv (2019/1024) — implementerat i Sverige som lag 2022:818 — ska just den här typen av rörlighets- och transportdata från offentliga aktörer vara fritt tillgänglig för allmänheten.",
+    "p1": "SJ AB är ett statligt ägt bolag som tillhandahåller en samhällsviktig tjänst. Enligt EU:s Öppna data-direktiv (2019/1024), implementerat i Sverige som lag 2022:818, ska just den här typen av rörlighets- och transportdata från offentliga aktörer vara fritt tillgänglig för allmänheten.",
     "p2": "Vi kan idag inte juridiskt kräva att SJ öppnar sitt API. Men vi är övertygade om att vi uppfyller direktivets intention: att medborgare ska kunna ta del av och bygga vidare på data som producerats med skattemedel.",
     "p3": "Det vi gör är enkelt: vi visar samma information som SJ:s egen webbplats, snabbare och utan onödiga klick. Vi tjänar inga pengar. Bokning sker alltid direkt hos SJ.",
-    "p4": "Med Justin Roczniak bevingade ord: \"Cars bad — trains good.\" Vi kämpar på tågets sida. SJ:s webbplats gör det inte. Historien har alltid belönat dem som gjort det enkelt att välja rätt — och vi har redan vunnit varje gång någon sluppit klicka sig igenom fyra sidor för att hitta ett tåg."
+    "p4": "Med Justin Roczniak bevingade ord: \"Cars bad, trains good.\" Vi kämpar på tågets sida. SJ:s webbplats gör det inte. Historien har alltid belönat dem som gjort det enkelt att välja rätt; vi har redan vunnit varje gång någon sluppit klicka sig igenom fyra sidor för att hitta ett tåg."
   },
   "search": {
     "from": "Från",
@@ -80,7 +80,7 @@
     "leg": "{from} → {to}",
     "total": "Totalt",
     "saving": "Du sparar {amount} SEK",
-    "note": "Samma tåg hela vägen – men du kan behöva byta plats i {station} (separata platsbokningar).",
+    "note": "Samma tåg hela vägen; du kan dock behöva byta plats i {station} (separata platsbokningar).",
     "bookLeg": "Boka",
     "checked": "Kontrollerade {count} stationer",
     "error": "Något gick fel vid delningssökningen.",
@@ -92,7 +92,7 @@
       "prefix": "Hittills denna månad har SJ:s vd Jonas Abrahamsson tjänat"
     },
     "bromma": {
-      "prefix": "Hittills i år har Swedavia (ett statligt bolag – alltså dina skattepengar) förlorat",
+      "prefix": "Hittills i år har Swedavia (ett statligt bolag, alltså dina skattepengar) förlorat",
       "suffix": "på att driva Bromma flygplats"
     }
   },
