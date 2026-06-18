@@ -61,6 +61,19 @@ interface CachedSegment {
 }
 
 /**
+ * Lowest available price across all classes (2nd, 2nd calm, 1st — and bed offers,
+ * which sjApi folds into the 2nd-class slot for night trains). A deal-hunter wants
+ * the cheapest fare on offer, not strictly 2nd class.
+ */
+function cheapestPrice(offers: Awaited<ReturnType<typeof getOffers>>): number | null {
+  if (!offers) return null;
+  const prices = [offers.secondClass, offers.secondClassCalm, offers.firstClass]
+    .filter((p) => p.available && p.price != null)
+    .map((p) => p.price as number);
+  return prices.length ? Math.min(...prices) : null;
+}
+
+/**
  * Resolve the 2nd-class price (and times) of a direct segment on a specific train number,
  * caching the result — including negatives — so candidates aren't re-probed.
  *
@@ -108,9 +121,8 @@ async function priceSegment(
     }
 
     const offers = await getOffers(match.departureId, passengerListId);
-    const second = offers?.secondClass;
     const result: CachedSegment = {
-      price: second?.available && second.price != null ? second.price : null,
+      price: cheapestPrice(offers),
       departureTime: match.departureTime,
       arrivalTime: match.arrivalTime,
       bookingUrl: buildBookingUrl(fromName, toName, date),
@@ -193,10 +205,11 @@ export async function findSplits(
     trainNumber = base.trainNumbers[0];
 
     const baseOffers = await getOffers(base.departureId, passengerListId);
-    if (!baseOffers?.secondClass.available || baseOffers.secondClass.price == null) {
-      return fail('Inget grundpris i 2:a klass att jämföra med.');
+    const cheapestBase = cheapestPrice(baseOffers);
+    if (cheapestBase == null) {
+      return fail('Inget grundpris att jämföra med.');
     }
-    basePrice = baseOffers.secondClass.price;
+    basePrice = cheapestBase;
   } catch (e) {
     console.error('Split base lookup failed:', e);
     return fail('Kunde inte hämta avgångens grundpris.');
