@@ -193,7 +193,10 @@ alt="Sena Jämt">
         </div>
 
         <!-- Right column - Info/placeholder (1/3 width) -->
-        <div class="lg:col-span-1">
+        <div class="lg:col-span-1 space-y-6">
+          <!-- Live money tickers -->
+          <TickerBoard />
+
           <UCard>
             <template #header>
               <h3 class="text-xl font-semibold text-gray-900 dark:text-white">
