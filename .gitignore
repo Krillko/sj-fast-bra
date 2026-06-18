@@ -29,5 +29,11 @@ screenshots/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Local-only / unlisted feature docs (kept out of the public README/CLAUDE.md)
+*.local.md
+
+# API exploration scratch artifacts
+.scratch/
+
 localhost.pem
 localhost-key.pem

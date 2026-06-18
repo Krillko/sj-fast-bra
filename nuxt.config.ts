@@ -18,6 +18,10 @@ export default defineNuxtConfig({
       clientVersion: process.env.SJ_CLIENT_VERSION ?? '20260609.0039-prod',
       // Max concurrent offer requests when fetching prices per departure
       offersConcurrency: 5,
+      // Split-ticket finder (hidden feature — see SPLIT.local.md). Bounded to stay
+      // polite to SJ and under Cloudflare's per-request subrequest limit.
+      splitConcurrency: 3,
+      splitMaxCandidates: 40,
     },
     public: {
       environment: process.env.NUXT_PUBLIC_ENVIRONMENT ?? 'local',

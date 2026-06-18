@@ -409,7 +409,8 @@ alt="Sena Jämt">
                   hasNoAvailableTickets(departure)
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                ]">
+                ]"
+                @contextmenu="onRowContextMenu($event, departure)">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" :class="hasNoAvailableTickets(departure) ? 'text-gray-400 dark:text-gray-600' : 'text-gray-900 dark:text-white'">
                   {{ departure.departureTime }}
                 </td>
@@ -477,6 +478,148 @@ alt="Sena Jämt">
         </div>
       </div>
     </main>
+
+    <!-- Hidden feature: cursor-anchored context menu for direct departures. -->
+    <div
+      v-if="contextMenu.visible"
+      class="fixed z-50 min-w-[160px] rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg py-1"
+      :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
+      @click.stop
+    >
+      <button
+        type="button"
+        class="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+        @click="startSplit(contextMenu.departure)"
+      >
+        <UIcon name="i-heroicons-scissors" class="w-4 h-4" />
+        {{ t('split.action') }}
+      </button>
+    </div>
+
+    <!-- Hidden feature: split-ticket result modal. -->
+    <UModal v-model:open="splitModalOpen" :title="t('split.title')">
+      <template #body>
+        <div v-if="splitState.departure">
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            {{ t('split.subtitle', {
+              route: `${t(fromCity.translationKey)} → ${t(toCity.translationKey)}`,
+              date,
+              time: splitState.departure.departureTime,
+            }) }}
+          </p>
+
+          <!-- Loading / progress -->
+          <div v-if="splitState.status === 'pending'" class="py-6 text-center">
+            <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary mb-3" />
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">{{ t('split.searching') }}</p>
+            <p v-if="splitState.progress.total > 0" class="text-xs text-gray-500 dark:text-gray-400">
+              {{ t('split.progress', splitState.progress) }}
+            </p>
+            <div v-if="splitState.progress.total > 0" class="mt-3 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                class="bg-primary h-2 rounded-full transition-all duration-300"
+                :style="{ width: `${(splitState.progress.checked / splitState.progress.total) * 100}%` }"
+              />
+            </div>
+          </div>
+
+          <!-- Error -->
+          <div v-else-if="splitState.status === 'error'" class="py-6 text-center">
+            <UIcon name="i-heroicons-exclamation-triangle" class="w-8 h-8 text-red-500 mb-2" />
+            <p class="text-sm text-gray-700 dark:text-gray-300">{{ splitState.error || t('split.error') }}</p>
+          </div>
+
+          <!-- Result -->
+          <div v-else-if="splitState.status === 'success' && splitState.result">
+            <!-- Unavailable / not splittable -->
+            <div v-if="splitState.result.unavailable" class="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                {{ t('split.unavailable', { reason: splitState.result.reason }) }}
+              </p>
+            </div>
+
+            <template v-else>
+              <!-- Base price reference -->
+              <div class="flex items-center justify-between mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('split.basePrice') }}</p>
+                  <p v-if="splitState.result.trainNumber" class="text-xs text-gray-400 dark:text-gray-500">
+                    {{ t('split.train', { number: splitState.result.trainNumber }) }}
+                  </p>
+                </div>
+                <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ splitState.result.basePrice }} SEK</p>
+              </div>
+
+              <!-- No cheaper split -->
+              <div v-if="splitState.result.splits.length === 0" class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('split.noSplits') }}</p>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  {{ t('split.checked', { count: splitState.result.checkedCandidates }) }}
+                </p>
+              </div>
+
+              <!-- Cheaper splits -->
+              <div v-else class="space-y-3">
+                <div
+                  v-for="(split, i) in splitState.result.splits"
+                  :key="i"
+                  class="rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10 p-3"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ t('split.via', { station: shortStation(split.viaStation) }) }}
+                    </p>
+                    <span class="text-sm font-bold text-green-700 dark:text-green-400">
+                      {{ t('split.saving', { amount: split.saving }) }}
+                    </span>
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <div
+                      v-for="(seg, key) in [split.segmentA, split.segmentB]"
+                      :key="key"
+                      class="flex items-center justify-between text-sm"
+                    >
+                      <span class="text-gray-700 dark:text-gray-300">
+                        <span class="text-gray-400 dark:text-gray-500 mr-2">{{ seg.departureTime }}–{{ seg.arrivalTime }}</span>
+                        {{ t('split.leg', { from: shortStation(seg.from), to: shortStation(seg.to) }) }}
+                      </span>
+                      <span class="flex items-center gap-2">
+                        <span class="text-gray-900 dark:text-white">{{ seg.price }} SEK</span>
+                        <UButton
+:to="seg.bookingUrl"
+target="_blank"
+external
+size="xs"
+variant="soft">
+                          {{ t('split.bookLeg') }}
+                        </UButton>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between mt-2 pt-2 border-t border-green-200 dark:border-green-800">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('split.total') }}</span>
+                    <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ split.total }} SEK</span>
+                  </div>
+
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    {{ t('split.note', { station: shortStation(split.viaStation) }) }}
+                  </p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <UButton
+color="gray"
+variant="soft"
+@click="closeSplitModal">{{ t('split.close') }}</UButton>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -1047,4 +1190,112 @@ const hasNoAvailableTickets = (departure: any): boolean => {
     && !departure.prices.secondClassCalm.available
     && !departure.prices.firstClass.available;
 };
+
+// ---------------------------------------------------------------------------
+// Split-ticket finder (hidden feature — right-click a direct departure).
+// See SPLIT.local.md (gitignored). No visible affordance by design.
+// ---------------------------------------------------------------------------
+
+// Lightweight cursor-anchored context menu.
+const contextMenu = ref<{ visible: boolean; x: number; y: number; departure: any }>(
+  { visible: false, x: 0, y: 0, departure: null }
+);
+
+const onRowContextMenu = (e: MouseEvent, departure: any) => {
+  // Only direct trains can be split onto a single physical train.
+  if (departure.changes !== 0) return;
+  e.preventDefault();
+  contextMenu.value = { visible: true, x: e.clientX, y: e.clientY, departure };
+};
+
+const closeContextMenu = () => {
+  contextMenu.value.visible = false;
+};
+
+// Split search state + SSE connection.
+const splitModalOpen = ref(false);
+const splitState = ref<{
+  status: 'idle' | 'pending' | 'success' | 'error';
+  departure: any;
+  progress: { checked: number; total: number; found: number };
+  result: any;
+  error: string;
+}>({ status: 'idle', departure: null, progress: { checked: 0, total: 0, found: 0 }, result: null, error: '' });
+
+let splitEventSource: EventSource | null = null;
+
+const startSplit = (departure: any) => {
+  closeContextMenu();
+  if (splitEventSource) splitEventSource.close();
+
+  splitState.value = {
+    status: 'pending',
+    departure,
+    progress: { checked: 0, total: 0, found: 0 },
+    result: null,
+    error: '',
+  };
+  splitModalOpen.value = true;
+
+  const params = new URLSearchParams({
+    from: fromCity.stationName,
+    to: toCity.stationName,
+    date,
+    departureTime: departure.departureTime,
+  });
+  if (route.query.noCache === '1') params.set('noCache', '1');
+
+  splitEventSource = new EventSource(`/api/split?${params}`);
+
+  splitEventSource.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === 'progress') {
+        splitState.value.progress = {
+          checked: message.checked,
+          total: message.total,
+          found: message.found,
+        };
+      } else if (message.type === 'complete') {
+        splitState.value.result = message.data;
+        splitState.value.status = 'success';
+        splitEventSource?.close();
+      } else if (message.type === 'error') {
+        splitState.value.error = message.message;
+        splitState.value.status = 'error';
+        splitEventSource?.close();
+      }
+    } catch (err) {
+      console.error('Error parsing split SSE message:', err, event.data);
+    }
+  };
+
+  splitEventSource.onerror = () => {
+    splitState.value.error = t('split.error');
+    splitState.value.status = 'error';
+    splitEventSource?.close();
+  };
+};
+
+const closeSplitModal = () => {
+  splitModalOpen.value = false;
+  if (splitEventSource) {
+    splitEventSource.close();
+    splitEventSource = null;
+  }
+};
+
+// Trim " Central" from station names for compact display in the split modal.
+const shortStation = (name: string): string => name.replace(/ Central$/, '');
+
+// Close the context menu on any outside interaction.
+onMounted(() => {
+  window.addEventListener('click', closeContextMenu);
+  window.addEventListener('scroll', closeContextMenu, true);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('click', closeContextMenu);
+  window.removeEventListener('scroll', closeContextMenu, true);
+  if (splitEventSource) splitEventSource.close();
+});
 </script>

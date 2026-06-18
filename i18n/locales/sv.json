@@ -47,6 +47,26 @@
     "earliestDeparture": "Tidigast avgång",
     "latestDeparture": "Senast avgång"
   },
+  "split": {
+    "action": "Försök dela",
+    "title": "Dela resan",
+    "subtitle": "{route} · {date} · avgång {time}",
+    "searching": "Letar efter billigare delning...",
+    "progress": "Kontrollerar {checked}/{total} stationer ({found} hittade)",
+    "basePrice": "Ordinarie pris (ett biljett)",
+    "train": "Tåg {number}",
+    "noSplits": "Ingen billigare delning hittades för den här avgången.",
+    "unavailable": "Kan inte dela: {reason}",
+    "via": "Byt biljett i {station}",
+    "leg": "{from} → {to}",
+    "total": "Totalt",
+    "saving": "Du sparar {amount} SEK",
+    "note": "Samma tåg hela vägen – men du kan behöva byta plats i {station} (separata platsbokningar).",
+    "bookLeg": "Boka",
+    "checked": "Kontrollerade {count} stationer",
+    "error": "Något gick fel vid delningssökningen.",
+    "close": "Stäng"
+  },
   "cities": {
     "stockholm": "Stockholm",
     "goteborg": "Göteborg",

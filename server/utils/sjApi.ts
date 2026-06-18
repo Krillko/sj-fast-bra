@@ -46,6 +46,12 @@ export interface DepartureStub {
   duration: string;
   changes: number;
   operator: string;
+  /**
+   * Train numbers per leg (`serviceName`, e.g. ["519"]). For a direct train this is a
+   * single entry — the physical train identifier used by the split-ticket finder to
+   * confirm a sub-segment is on the *same* train. See SPLIT.local.md.
+   */
+  trainNumbers: string[];
 }
 
 interface SjRuntime {
@@ -207,13 +213,18 @@ function mapDepartureStub(dep: {
   arrivalDateTime: string;
   duration: string;
   numberOfChanges: number;
-  legs?: Array<{ serviceType?: { name?: string; description?: string } }>;
+  legs?: Array<{ serviceName?: string; publicServiceName?: string; serviceType?: { name?: string; description?: string } }>;
 }): DepartureStub {
   // Operator: unique service-type names across legs, joined (e.g. "SJ Snabbtåg + SJ Regional").
   const names = (dep.legs ?? [])
     .map((l) => l.serviceType?.name || l.serviceType?.description)
     .filter((n): n is string => !!n);
   const operator = [...new Set(names)].join(' + ');
+
+  // Train numbers per leg — the physical-train identifier used for split matching.
+  const trainNumbers = (dep.legs ?? [])
+    .map((l) => l.serviceName || l.publicServiceName)
+    .filter((n): n is string => !!n);
 
   return {
     departureId: dep.departureId,
@@ -222,6 +233,7 @@ function mapDepartureStub(dep: {
     duration: parseDuration(dep.duration),
     changes: dep.numberOfChanges ?? 0,
     operator,
+    trainNumbers,
   };
 }
 
