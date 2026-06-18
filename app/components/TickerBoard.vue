@@ -42,8 +42,8 @@ const tickers = computed(() => TICKERS.map((ticker) => ({
         <UIcon name="i-heroicons-banknotes" class="mt-0.5 size-5 shrink-0 text-primary-500" />
         <p>
           {{ ticker.prefix }}
-          <span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ ticker.amount }} kr</span>
-          <template v-if="ticker.suffix"> {{ ticker.suffix }}</template>
+          <span class="whitespace-nowrap font-bold tabular-nums text-gray-900 dark:text-white">{{ ticker.amount }} kr</span>
+          <template v-if="ticker.suffix">{{ ' ' + ticker.suffix }}</template>
         </p>
       </li>
     </ul>
