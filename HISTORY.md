@@ -253,3 +253,29 @@ API behind it.
   optimization, or workaround, or learn something notable about how SJ's API/site
   behaves, append a dated section (hypothesis, what changed, measurements, keep/revert
   decision). Record failures too — that's exactly what stops us re-testing dead ends.
+
+---
+
+## 2026-06-18 — No per-departure booking deep link on sj.se (Book button removed)
+
+**Question:** Can the per-row "Book" button link to a *specific* departure on sj.se?
+
+**Investigated** the live booking flow via Chrome:
+- Searched a route, then clicked individual departures. The URL never changes —
+  it stays the generic `.../choose-ticket-type/{from}/{to}/{date}/outward-journey`
+  with **no departure id** in the path or query. The selected train is held in
+  **client state (sessionStorage), not the URL.**
+- Opening `choose-ticket-type/.../outward-journey` fresh (no client state, even a
+  brand-new tab / different route) **redirects** to
+  `choose-journey/{from}/{to}/{date}` — the route+date departure *list*.
+- `choose-journey/{from}/{to}/{date}` is the clean canonical URL (no redirect) but
+  still only the list — there is no URL that pre-selects one train.
+
+**Conclusion:** Per-departure deep-linking is **impossible** via URL. A per-row Book
+button can only ever land the user on the full route/date list.
+
+**Decision:** Per the owner, the Book buttons (main results table, Favoriter table,
+and split-ticket "Book leg") were **commented out** (not deleted — easy to restore)
+in `app/pages/[date]/[from]/[to].vue`, along with their table column headers so the
+layout stays aligned. The `bookingUrl` field / `buildBookingUrl()` plumbing is left
+intact. If SJ ever exposes a departure id in the URL, uncomment and switch the link.

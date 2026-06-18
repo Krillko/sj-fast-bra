@@ -214,9 +214,12 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.secondClass') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <!-- Book column disabled: SJ.se has no per-departure deep link (the selected
+                     train lives in client state, not the URL), so a per-row "Book" button can
+                     only land on the route/date list. Kept commented out for easy restore. -->
+                <!-- <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
-                </th>
+                </th> -->
                 <th scope="col" class="w-12 py-3 px-2"/>
               </tr>
               </thead>
@@ -237,7 +240,8 @@ alt="Sena Jämt">
                 <td class="px-6 py-4 whitespace-nowrap text-sm" :class="fav.departure.prices.secondClass.available ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'">
                   {{ formatPrice(fav.departure.prices.secondClass.price, fav.departure.prices.secondClass.available) }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                <!-- Book button disabled — see column-header note above. -->
+                <!-- <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                   <UButton
                     :to="fav.departure.bookingUrl"
                     target="_blank"
@@ -247,7 +251,7 @@ alt="Sena Jämt">
                   >
                     {{ t('results.book') }}
                   </UButton>
-                </td>
+                </td> -->
                 <td class="py-4 px-2 whitespace-nowrap text-center text-sm">
                   <UButton
                     icon="i-heroicons-star-solid"
@@ -397,9 +401,12 @@ alt="Sena Jämt">
                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.firstClass') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <!-- Book column disabled: SJ.se has no per-departure deep link (the selected
+                     train lives in client state, not the URL), so a per-row "Book" button can
+                     only land on the route/date list. Kept commented out for easy restore. -->
+                <!-- <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   {{ t('results.book') }}
-                </th>
+                </th> -->
                 <th scope="col" class="w-12 py-3 px-2"/>
               </tr>
               </thead>
@@ -444,7 +451,8 @@ alt="Sena Jämt">
                 <td class="px-6 py-4 whitespace-nowrap text-sm" :class="departure.prices.firstClass.available ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'">
                   {{ formatPrice(departure.prices.firstClass.price, departure.prices.firstClass.available) }}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                <!-- Book button disabled — see column-header note above. -->
+                <!-- <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
                   <UButton
                     :to="departure.bookingUrl"
                     target="_blank"
@@ -454,7 +462,7 @@ alt="Sena Jämt">
                   >
                     {{ t('results.book') }}
                   </UButton>
-                </td>
+                </td> -->
                 <td class="py-4 px-2 whitespace-nowrap text-center text-sm">
                   <UButton
                     :icon="isFavorite(departure) ? 'i-heroicons-star-solid' : 'i-heroicons-star'"
@@ -589,14 +597,16 @@ alt="Sena Jämt">
                       </span>
                       <span class="flex items-center gap-2">
                         <span class="text-gray-900 dark:text-white">{{ seg.price }} SEK</span>
-                        <UButton
+                        <!-- Book-leg button disabled: same limitation as the main Book button —
+                             SJ.se has no per-departure deep link. Kept commented out for easy restore. -->
+                        <!-- <UButton
 :to="seg.bookingUrl"
 target="_blank"
 external
 size="xs"
 variant="soft">
                           {{ t('split.bookLeg') }}
-                        </UButton>
+                        </UButton> -->
                       </span>
                     </div>
                   </div>
