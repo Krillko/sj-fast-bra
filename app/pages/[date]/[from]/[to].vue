@@ -355,10 +355,10 @@ alt="Sena Jämt">
 
             <!-- Stats and scraped timestamp -->
             <div v-if="data.stats" class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <p class="text-sm text-blue-800 dark:text-blue-200">
+<!--              <p class="text-sm text-blue-800 dark:text-blue-200">
                 <UIcon name="i-heroicons-sparkles" class="inline-block mr-1" />
                 {{ t('results.statsSaved', { clicks: data.stats.clicksSaved, pages: data.stats.pagesVisited }) }}
-              </p>
+              </p>-->
               <p class="text-xs text-blue-700 dark:text-blue-300 mt-1">
                 {{ t('results.scrapedAt') }}: {{ formatTimestamp(data.scrapedAt) }}
               </p>
@@ -475,6 +475,24 @@ alt="Sena Jämt">
               </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Hidden non-direct departures prompt: only when the direct-only filter is
+               active and there are earlier/later departures with changes being hidden. -->
+          <div
+            v-if="hasHiddenNonDirect"
+            class="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+              <UIcon name="i-heroicons-information-circle" class="inline-block mr-1" />
+              {{ t('results.moreDeparturesNoDirect') }}
+            </p>
+            <UButton
+size="sm"
+color="yellow"
+variant="soft"
+@click="showDirectOnly = false">
+              {{ t('results.showAllDepartures') }}
+            </UButton>
           </div>
         </UCard>
 
@@ -1079,6 +1097,26 @@ const hasAnyTrains = computed(() => {
 // Check if there are any direct trains available
 const hasDirectTrains = computed(() => {
   return data.value?.departures.some((d) => d.changes === 0) || false;
+});
+
+// When the direct-only filter is on, detect non-direct departures hidden *outside*
+// the span of the visible direct trains (earlier than the first or later than the
+// last direct departure, within the current time-range window). These are the
+// departures a user is most likely missing — e.g. only late evening trains require
+// a change. Returns false when nothing relevant is hidden.
+const hasHiddenNonDirect = computed(() => {
+  if (!showDirectOnly.value || !data.value?.departures) return false;
+
+  const inWindow = data.value.departures.filter((d) =>
+    d.departureTime >= earliestTime.value && d.departureTime <= latestTime.value);
+  const directTimes = inWindow.filter((d) => d.changes === 0).map((d) => d.departureTime);
+  const nonDirectTimes = inWindow.filter((d) => d.changes > 0).map((d) => d.departureTime);
+  if (directTimes.length === 0 || nonDirectTimes.length === 0) return false;
+
+  // departureTime is "HH:MM" — lexicographic comparison matches chronological order.
+  const firstDirect = directTimes.reduce((a, b) => (a < b ? a : b));
+  const lastDirect = directTimes.reduce((a, b) => (a > b ? a : b));
+  return nonDirectTimes.some((t) => t < firstDirect || t > lastDirect);
 });
 
 // Parse duration string to minutes
