@@ -53,7 +53,7 @@
     "subtitle": "{route} · {date} · avgång {time}",
     "searching": "Letar efter billigare delning...",
     "progress": "Kontrollerar {checked}/{total} stationer ({found} hittade)",
-    "basePrice": "Ordinarie pris (ett biljett)",
+    "basePrice": "Ordinarie pris (en biljett)",
     "train": "Tåg {number}",
     "noSplits": "Ingen billigare delning hittades för den här avgången.",
     "unavailable": "Kan inte dela: {reason}",
