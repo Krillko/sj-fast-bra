@@ -28,6 +28,14 @@ export default defineNuxtConfig({
     },
   },
 
+  routeRules: {
+    // The joke "user agreement" is a raw .md file in /public. Browsers fall back
+    // to Latin-1 for markdown without a charset, mangling å/ä/ö — pin it to UTF-8.
+    '/user-agreeeeeeemeeent.md': {
+      headers: { 'content-type': 'text/markdown; charset=utf-8' },
+    },
+  },
+
   modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxtjs/i18n'],
 
   css: ['~/assets/css/main.css'],
