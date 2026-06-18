@@ -5,6 +5,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sj-fast-bra",
   "main": ".output/server/index.mjs",
+  // Custom domains (DNS record + TLS cert auto-created per zone). Locale defaults
+  // by host: fastbra.se → Swedish, butgoodinstead.com → English (see locale-by-domain middleware).
+  "routes": [
+    { "pattern": "sj.fastbra.se", "custom_domain": true },
+    { "pattern": "sj.butgoodinstead.com", "custom_domain": true }
+  ],
   "compatibility_date": "2026-06-13",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
